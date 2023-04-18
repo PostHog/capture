@@ -1,7 +1,4 @@
-use axum::{
-    routing::get,
-    Router,
-};
+use axum::{routing::get, Router};
 use std::net::SocketAddr;
 
 mod capture;
@@ -11,8 +8,7 @@ async fn main() {
     // initialize tracing
     tracing_subscriber::fmt::init();
 
-    let app = Router::new()
-        .route("/", get(capture::root));
+    let app = Router::new().route("/", get(capture::root));
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
@@ -25,4 +21,3 @@ async fn main() {
         .await
         .unwrap();
 }
-
