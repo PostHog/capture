@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
 // Define the API interface for capture here.
 // This is used for serializing responses and deserializing requests

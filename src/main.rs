@@ -1,11 +1,10 @@
-use axum::{routing::get, routing::post, Router};
+use axum::{routing::post, Router};
 use std::net::SocketAddr;
 use tower_http::trace::TraceLayer;
 
 mod api;
 mod capture;
 mod token;
-mod utils;
 
 #[tokio::main]
 async fn main() {

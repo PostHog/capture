@@ -5,24 +5,24 @@ use std::fmt::Display;
 
 #[derive(Debug, PartialEq)]
 pub enum InvalidTokenReason {
-    IsEmpty,
+    Empty,
 
     // ignoring for now, as serde and the type system save us but we need to error properly
-    IsNotString,
+    // IsNotString,
 
-    IsTooLong,
-    IsNotAscii,
-    IsPersonalApiKey,
+    TooLong,
+    NotAscii,
+    PersonalApiKey,
 }
 
 impl InvalidTokenReason {
     pub fn reason(&self) -> &str {
         match *self {
-            Self::IsEmpty => "empty",
-            Self::IsNotAscii => "not_ascii",
-            Self::IsNotString => "not_string",
-            Self::IsTooLong => "too_long",
-            Self::IsPersonalApiKey => "personal_api_key",
+            Self::Empty => "empty",
+            Self::NotAscii => "not_ascii",
+            // Self::IsNotString => "not_string",
+            Self::TooLong => "too_long",
+            Self::PersonalApiKey => "personal_api_key",
         }
     }
 }
@@ -43,19 +43,19 @@ impl Error for InvalidTokenReason {
 /// these at the edge yet.
 pub fn validate_token(token: &str) -> Result<(), InvalidTokenReason> {
     if token.is_empty() {
-        return Err(InvalidTokenReason::IsEmpty);
+        return Err(InvalidTokenReason::Empty);
     }
 
     if token.len() > 64 {
-        return Err(InvalidTokenReason::IsTooLong);
+        return Err(InvalidTokenReason::TooLong);
     }
 
     if !token.is_ascii() {
-        return Err(InvalidTokenReason::IsNotAscii);
+        return Err(InvalidTokenReason::NotAscii);
     }
 
     if token.starts_with("phx_") {
-        return Err(InvalidTokenReason::IsPersonalApiKey);
+        return Err(InvalidTokenReason::PersonalApiKey);
     }
 
     Ok(())
@@ -70,7 +70,7 @@ mod tests {
         let valid = validate_token("");
 
         assert!(valid.is_err());
-        assert_eq!(valid.unwrap_err(), InvalidTokenReason::IsEmpty);
+        assert_eq!(valid.unwrap_err(), InvalidTokenReason::Empty);
     }
 
     #[test]
@@ -79,7 +79,7 @@ mod tests {
             validate_token("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
 
         assert!(valid.is_err());
-        assert_eq!(valid.unwrap_err(), InvalidTokenReason::IsTooLong);
+        assert_eq!(valid.unwrap_err(), InvalidTokenReason::TooLong);
     }
 
     #[test]
@@ -87,7 +87,7 @@ mod tests {
         let valid = validate_token("🦀");
 
         assert!(valid.is_err());
-        assert_eq!(valid.unwrap_err(), InvalidTokenReason::IsNotAscii);
+        assert_eq!(valid.unwrap_err(), InvalidTokenReason::NotAscii);
     }
 
     #[test]
@@ -95,6 +95,6 @@ mod tests {
         let valid = validate_token("phx_hellothere");
 
         assert!(valid.is_err());
-        assert_eq!(valid.unwrap_err(), InvalidTokenReason::IsPersonalApiKey);
+        assert_eq!(valid.unwrap_err(), InvalidTokenReason::PersonalApiKey);
     }
 }
