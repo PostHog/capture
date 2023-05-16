@@ -9,13 +9,13 @@ use serde::{Deserialize, Serialize};
 // a million special cases and properties all over the place
 // Also - what are the possible types for a property value? Account for those.
 #[derive(Debug, Deserialize, Serialize)]
-pub struct CaptureRequest{
+pub struct CaptureRequest {
     #[serde(alias = "$token", alias = "api_key")]
     pub token: String,
 
     pub event: String,
-    pub properties: HashMap<String>
+    pub properties: HashMap<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct CaptureResponse{}
+pub struct CaptureResponse {}

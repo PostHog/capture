@@ -12,7 +12,7 @@ pub enum InvalidTokenReason {
 
     IsTooLong,
     IsNotAscii,
-    IsPersonalApiKey
+    IsPersonalApiKey,
 }
 
 impl InvalidTokenReason {
@@ -27,7 +27,7 @@ impl InvalidTokenReason {
     }
 }
 
-impl Display for InvalidTokenReason{
+impl Display for InvalidTokenReason {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.reason())
     }
@@ -45,7 +45,7 @@ pub fn validate_token(token: &str) -> Result<(), InvalidTokenReason> {
     if token.is_empty() {
         return Err(InvalidTokenReason::IsEmpty);
     }
-    
+
     if token.len() > 64 {
         return Err(InvalidTokenReason::IsTooLong);
     }
@@ -75,7 +75,8 @@ mod tests {
 
     #[test]
     fn blocks_too_long_tokens() {
-        let valid = validate_token("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+        let valid =
+            validate_token("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
 
         assert!(valid.is_err());
         assert_eq!(valid.unwrap_err(), InvalidTokenReason::IsTooLong);
