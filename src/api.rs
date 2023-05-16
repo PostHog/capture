@@ -14,7 +14,7 @@ pub struct CaptureRequest {
     pub token: String,
 
     pub event: String,
-    pub properties: HashMap<String>,
+    // pub properties: HashMap<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
