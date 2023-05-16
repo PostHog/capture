@@ -9,7 +9,6 @@ pub enum InvalidTokenReason {
 
     // ignoring for now, as serde and the type system save us but we need to error properly
     // IsNotString,
-
     TooLong,
     NotAscii,
     PersonalApiKey,
