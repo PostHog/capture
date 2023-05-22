@@ -108,15 +108,22 @@ pub async fn process_events(
 
 #[cfg(test)]
 mod tests {
+    use crate::sink;
     use std::collections::HashMap;
+    use std::sync::Arc;
 
     use serde_json::json;
 
     use super::process_events;
     use crate::event::Event;
+    use crate::router::State;
 
-    #[test]
-    fn all_events_have_same_token() {
+    #[tokio::test]
+    async fn all_events_have_same_token() {
+        let state = State {
+            sink: Arc::new(sink::PrintSink {}),
+        };
+
         let events = vec![
             Event {
                 token: Some(String::from("hello")),
@@ -130,11 +137,16 @@ mod tests {
             },
         ];
 
-        assert_eq!(process_events(&events).is_ok(), true);
+        let processed = process_events(state.sink, &events).await;
+        assert_eq!(processed.is_ok(), true);
     }
 
-    #[test]
-    fn all_events_have_different_token() {
+    #[tokio::test]
+    async fn all_events_have_different_token() {
+        let state = State {
+            sink: Arc::new(sink::PrintSink {}),
+        };
+
         let events = vec![
             Event {
                 token: Some(String::from("hello")),
@@ -148,6 +160,7 @@ mod tests {
             },
         ];
 
-        assert_eq!(process_events(&events).is_err(), true);
+        let processed = process_events(state.sink, &events).await;
+        assert_eq!(processed.is_err(), true);
     }
 }
