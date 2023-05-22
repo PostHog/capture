@@ -1,22 +1,22 @@
-use std::fs::File;
-use std::io::{BufRead, BufReader};
 use axum::http::StatusCode;
 use axum_test_helper::TestClient;
-use serde::Deserialize;
-use serde_json::Value;
-use time::OffsetDateTime;
 use capture::event::ProcessedEvent;
 use capture::router::router;
+use serde::Deserialize;
+use serde_json::Value;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use time::OffsetDateTime;
 
 /*
-            "path": request.get_full_path(),
-            "method": request.method,
-            "content-encoding": request.META.get("content-encoding", ""),
-            "ip": request.META.get("HTTP_X_FORWARDED_FOR", request.META.get("REMOTE_ADDR")),
-            "now": now.isoformat(),
-            "body": base64.b64encode(request.body).decode(encoding="ascii"),
-            "output": [],
- */
+           "path": request.get_full_path(),
+           "method": request.method,
+           "content-encoding": request.META.get("content-encoding", ""),
+           "ip": request.META.get("HTTP_X_FORWARDED_FOR", request.META.get("REMOTE_ADDR")),
+           "now": now.isoformat(),
+           "body": base64.b64encode(request.body).decode(encoding="ascii"),
+           "output": [],
+*/
 
 #[derive(Debug, Deserialize)]
 struct RequestDump {
@@ -41,8 +41,8 @@ async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
         let request: RequestDump = serde_json::from_str(&line?)?;
 
         if request.path.starts_with("/s") {
-        println!("Skipping {} dump", &request.path);
-            continue
+            println!("Skipping {} dump", &request.path);
+            continue;
         }
 
         println!("{:?}", &request);
@@ -55,4 +55,3 @@ async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
     }
     Ok(())
 }
-

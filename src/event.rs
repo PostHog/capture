@@ -46,7 +46,7 @@ impl Event {
                 let d = GzDecoder::new(bytes.reader());
                 Ok(serde_json::from_reader(d)?)
             }
-            None => Ok(serde_json::from_reader(bytes.reader())?)
+            None => Ok(serde_json::from_reader(bytes.reader())?),
         }
     }
 }
@@ -65,9 +65,9 @@ pub struct ProcessedEvent {
 
 #[cfg(test)]
 mod tests {
+    use super::Compression;
     use base64::Engine as _;
     use bytes::Bytes;
-    use super::Compression;
 
     use super::{Event, EventQuery};
 
@@ -79,11 +79,14 @@ mod tests {
             .unwrap();
 
         let bytes = Bytes::from(decoded_horrible_blob);
-        let events = Event::from_bytes(&EventQuery{
-            compression: Some(Compression::GzipJs),
-            version: None,
-            sent_at: None,
-        }, bytes);
+        let events = Event::from_bytes(
+            &EventQuery {
+                compression: Some(Compression::GzipJs),
+                version: None,
+                sent_at: None,
+            },
+            bytes,
+        );
 
         assert_eq!(events.is_ok(), true);
     }
