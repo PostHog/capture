@@ -29,7 +29,7 @@ pub struct EventQuery {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Event {
     #[serde(alias = "$token", alias = "api_key")]
-    pub token: String,
+    pub token: Option<String>,
 
     pub event: String,
     pub properties: HashMap<String, Value>,
@@ -41,7 +41,7 @@ impl Event {
     /// TODO: Use an axum extractor for this
     pub fn from_bytes(_: &EventQuery, bytes: Bytes) -> Result<Vec<Event>>{
         let d = GzDecoder::new(bytes.reader());
-        let event = serde_json::from_reader(d)?;
+        let event = serde_json::from_reader(d).unwrap();
 
         Ok(event)
     }
@@ -60,7 +60,8 @@ mod tests {
         let decoded_horrible_blob = base64::engine::general_purpose::STANDARD.decode(horrible_blob).unwrap();
 
         let bytes = Bytes::from(decoded_horrible_blob);
-        let event = Event::from_bytes(&EventQuery::default(), bytes);
-        assert_eq!(event.is_ok(), true);
+        let events = Event::from_bytes(&EventQuery::default(), bytes);
+
+        assert_eq!(events.is_ok(), true);
     }
 }

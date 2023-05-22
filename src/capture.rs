@@ -33,7 +33,11 @@ pub async fn event(
 
 pub fn process_events(events: &[Event]) -> Result<(), String> {
     for event in events {
-        if let Err(invalid) = token::validate_token(event.token.as_str()) {
+        let token = event.token.clone().unwrap_or_else(||{
+            event.properties.get("token").map_or(String::new(), |t| t.to_string())
+        });
+
+        if let Err(invalid) = token::validate_token(token.as_str()) {
             return Err(invalid.reason().to_string());
         }
     }
