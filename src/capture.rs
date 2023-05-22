@@ -1,28 +1,44 @@
+use bytes::Bytes;
+
+use axum::{http::StatusCode, Json};
+// TODO: stream this instead
+use axum::extract::Query;
+
 use crate::{
-    api::{CaptureRequest, CaptureResponse},
+    api::CaptureResponse,
+    event::{EventQuery, Event},
     token,
 };
-use axum::{http::StatusCode, Json};
 
-/// A single event
-/// Does not yet support everything the old method does - we expect to be able to deserialize the
-/// entire POST body, and not keep checking for form attributes.
-///
-/// TODO: Switch on this between two handlers. DO NOT branch in the code.
-/// TODO: Add error responses in the same format as capture.py. Probs custom extractor.
 pub async fn event(
-    req: Json<CaptureRequest>,
+    meta: Query<EventQuery>,
+    body: Bytes,
 ) -> Result<Json<CaptureResponse>, (StatusCode, String)> {
-    tracing::info!("new event of type {}", req.token);
 
-    // I wanted to do some sort of middleware that pulled the token out of the headers, but... The
-    // token isn't usually in the headers, but in the body :(
-    // Could move token parsing into the middleware at some point
-    if let Err(invalid) = token::validate_token(req.token.as_str()) {
-        return Err((StatusCode::BAD_REQUEST, invalid.reason().to_string()));
+    let events = Event::from_bytes(&meta, body);
+
+    let events = match events {
+        Ok(events) => events,
+        Err(_)=> return Err((StatusCode::BAD_REQUEST, String::from("Failed to decode event"))),
+    };
+
+    let processed = process_events(&events);
+
+    if let Err(msg) = processed {
+        return Err((StatusCode::BAD_REQUEST, msg));
     }
 
     Ok(Json(CaptureResponse {}))
+}
+
+pub fn process_events(events: &[Event]) -> Result<(), String> {
+    for event in events {
+        if let Err(invalid) = token::validate_token(event.token.as_str()) {
+            return Err(invalid.reason().to_string());
+        }
+    }
+
+    Ok(())
 }
 
 // A group of events! There is no limit here, though our HTTP stack will reject anything above

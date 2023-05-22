@@ -5,6 +5,7 @@ use tower_http::trace::TraceLayer;
 mod api;
 mod capture;
 mod token;
+mod event;
 
 #[tokio::main]
 async fn main() {
