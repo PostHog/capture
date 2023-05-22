@@ -6,13 +6,13 @@ use tower_http::trace::TraceLayer;
 use crate::{capture, sink};
 
 #[derive(Clone)]
-pub struct State{
+pub struct State {
     pub sink: Arc<dyn sink::EventSink + Send + Sync>,
 }
 
 pub fn router() -> Router {
     let state = State {
-        sink: Arc::new(sink::PrintSink{}),
+        sink: Arc::new(sink::PrintSink {}),
     };
 
     Router::new()

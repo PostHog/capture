@@ -1,5 +1,5 @@
-use async_trait::async_trait;
 use anyhow::Result;
+use async_trait::async_trait;
 
 use crate::event::ProcessedEvent;
 
@@ -9,7 +9,7 @@ pub trait EventSink {
     async fn send_batch(&self, events: &[ProcessedEvent]) -> Result<()>;
 }
 
-pub struct PrintSink{}
+pub struct PrintSink {}
 
 #[async_trait]
 impl EventSink for PrintSink {

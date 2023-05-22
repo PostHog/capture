@@ -1,5 +1,5 @@
-use std::io::prelude::*;
 use std::collections::HashMap;
+use std::io::prelude::*;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -46,15 +46,15 @@ impl Event {
 
         match query.compression {
             Some(Compression::GzipJs) => {
-        let mut d = GzDecoder::new(bytes.reader());
-        let mut s = String::new();
-        d.read_to_string(&mut s)?;
+                let mut d = GzDecoder::new(bytes.reader());
+                let mut s = String::new();
+                d.read_to_string(&mut s)?;
 
-        tracing::debug!(json = s, "decoded event data");
+                tracing::debug!(json = s, "decoded event data");
 
-        let event = serde_json::from_str(s.as_str())?;
+                let event = serde_json::from_str(s.as_str())?;
 
-        Ok(event)
+                Ok(event)
             }
             None => Ok(serde_json::from_reader(bytes.reader())?),
         }

@@ -4,8 +4,8 @@ mod api;
 mod capture;
 mod event;
 mod router;
-mod token;
 mod sink;
+mod token;
 
 #[tokio::main]
 async fn main() {

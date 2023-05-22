@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use anyhow::Result;
 use bytes::Bytes;
@@ -15,9 +15,7 @@ use crate::event::ProcessedEvent;
 use crate::{
     api::CaptureResponse,
     event::{Event, EventQuery},
-    router,
-    token,
-    sink,
+    router, sink, token,
 };
 
 pub async fn event(
@@ -36,7 +34,7 @@ pub async fn event(
             return Err((
                 StatusCode::BAD_REQUEST,
                 String::from("Failed to decode event"),
-            ))
+            ));
         }
     };
 
@@ -55,9 +53,9 @@ pub async fn event(
     }))
 }
 
-pub fn process_single_event(event: &Event) -> Result<ProcessedEvent>{
+pub fn process_single_event(event: &Event) -> Result<ProcessedEvent> {
     // TODO: Put actual data in here and transform it properly
-    Ok(ProcessedEvent{
+    Ok(ProcessedEvent {
         uuid: Uuid::new_v4(),
         distinct_id: Uuid::new_v4().simple().to_string(),
         ip: String::new(),
@@ -69,7 +67,10 @@ pub fn process_single_event(event: &Event) -> Result<ProcessedEvent>{
     })
 }
 
-pub async fn process_events(sink: Arc<dyn sink::EventSink + Send + Sync>, events: &[Event]) -> Result<(), String> {
+pub async fn process_events(
+    sink: Arc<dyn sink::EventSink + Send + Sync>,
+    events: &[Event],
+) -> Result<(), String> {
     let mut distinct_tokens = HashSet::new();
 
     // 1. Tokens are all valid
@@ -99,9 +100,7 @@ pub async fn process_events(sink: Arc<dyn sink::EventSink + Send + Sync>, events
 
     if events.len() == 1 {
         let sent = sink.send(events[0].clone()).await;
-        if sent.is_err() {
-
-        }
+        if sent.is_err() {}
     }
 
     Ok(())
