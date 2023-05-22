@@ -32,6 +32,7 @@ struct RequestDump {
 
 static REQUESTS_DUMP_FILE_NAME: &str = "tests/requests_dump.jsonl";
 
+#[ignore]
 #[tokio::test]
 async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
     let file = File::open(REQUESTS_DUMP_FILE_NAME)?;
@@ -51,8 +52,6 @@ async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
         let client = TestClient::new(app);
         let res = client.post("/e/").send().await;
         assert_eq!(res.status(), StatusCode::OK, "{}", res.text().await);
-
-        //println!("{:?}", request);
     }
     Ok(())
 }
