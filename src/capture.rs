@@ -1,27 +1,38 @@
+use std::sync::Arc;
 use std::collections::HashSet;
 
+use anyhow::Result;
 use bytes::Bytes;
 
 use axum::{http::StatusCode, Json};
 // TODO: stream this instead
-use axum::extract::Query;
+use axum::extract::{Query, State};
+use uuid::Uuid;
 
 use crate::api::CaptureResponseCode;
+use crate::event::ProcessedEvent;
+
 use crate::{
     api::CaptureResponse,
     event::{Event, EventQuery},
+    router,
     token,
+    sink,
 };
 
 pub async fn event(
+    state: State<router::State>,
     meta: Query<EventQuery>,
     body: Bytes,
 ) -> Result<Json<CaptureResponse>, (StatusCode, String)> {
+    tracing::debug!(len = body.len(), "new event request");
+
     let events = Event::from_bytes(&meta, body);
 
     let events = match events {
         Ok(events) => events,
-        Err(_) => {
+        Err(e) => {
+            tracing::error!("failed to decode event: {:?}", e);
             return Err((
                 StatusCode::BAD_REQUEST,
                 String::from("Failed to decode event"),
@@ -33,7 +44,7 @@ pub async fn event(
         return Err((StatusCode::BAD_REQUEST, String::from("No events in batch")));
     }
 
-    let processed = process_events(&events);
+    let processed = process_events(state.sink.clone(), &events).await;
 
     if let Err(msg) = processed {
         return Err((StatusCode::BAD_REQUEST, msg));
@@ -44,7 +55,21 @@ pub async fn event(
     }))
 }
 
-pub fn process_events(events: &[Event]) -> Result<(), String> {
+pub fn process_single_event(event: &Event) -> Result<ProcessedEvent>{
+    // TODO: Put actual data in here and transform it properly
+    Ok(ProcessedEvent{
+        uuid: Uuid::new_v4(),
+        distinct_id: Uuid::new_v4().simple().to_string(),
+        ip: String::new(),
+        site_url: String::new(),
+        data: String::from("hallo I am some data 😊"),
+        now: String::new(),
+        sent_at: String::new(),
+        token: String::from("tokentokentoken"),
+    })
+}
+
+pub async fn process_events(sink: Arc<dyn sink::EventSink + Send + Sync>, events: &[Event]) -> Result<(), String> {
     let mut distinct_tokens = HashSet::new();
 
     // 1. Tokens are all valid
@@ -65,6 +90,18 @@ pub fn process_events(events: &[Event]) -> Result<(), String> {
 
     if distinct_tokens.len() > 1 {
         return Err(String::from("Number of distinct tokens in batch > 1"));
+    }
+
+    let events: Vec<ProcessedEvent> = match events.iter().map(process_single_event).collect() {
+        Err(_) => return Err(String::from("Failed to process all events")),
+        Ok(events) => events,
+    };
+
+    if events.len() == 1 {
+        let sent = sink.send(events[0].clone()).await;
+        if sent.is_err() {
+
+        }
     }
 
     Ok(())
