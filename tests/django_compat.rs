@@ -50,7 +50,7 @@ async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
         let app = router();
         let client = TestClient::new(app);
         let res = client.post("/e/").send().await;
-        assert_eq!(res.status(), StatusCode::OK, "Unexpected response: {}", res.body());
+        assert_eq!(res.status(), StatusCode::OK, "{}", res.text().await);
 
         //println!("{:?}", request);
     }

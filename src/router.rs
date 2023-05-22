@@ -4,6 +4,7 @@ use tower_http::trace::TraceLayer;
 
 pub fn router() -> Router {
     Router::new()
+        // TODO: use NormalizePathLayer::trim_trailing_slash
         .route("/capture", post(capture::event))
         .route("/capture/", post(capture::event))
         .route("/batch", post(capture::event))
