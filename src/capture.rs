@@ -6,7 +6,7 @@ use axum::extract::Query;
 
 use crate::{
     api::CaptureResponse,
-    event::{EventQuery, Event},
+    event::{Event, EventQuery},
     token,
 };
 
@@ -14,12 +14,16 @@ pub async fn event(
     meta: Query<EventQuery>,
     body: Bytes,
 ) -> Result<Json<CaptureResponse>, (StatusCode, String)> {
-
     let events = Event::from_bytes(&meta, body);
 
     let events = match events {
         Ok(events) => events,
-        Err(_)=> return Err((StatusCode::BAD_REQUEST, String::from("Failed to decode event"))),
+        Err(_) => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                String::from("Failed to decode event"),
+            ))
+        }
     };
 
     let processed = process_events(&events);
@@ -33,8 +37,11 @@ pub async fn event(
 
 pub fn process_events(events: &[Event]) -> Result<(), String> {
     for event in events {
-        let token = event.token.clone().unwrap_or_else(||{
-            event.properties.get("token").map_or(String::new(), |t| t.to_string())
+        let token = event.token.clone().unwrap_or_else(|| {
+            event
+                .properties
+                .get("token")
+                .map_or(String::new(), |t| t.to_string())
         });
 
         if let Err(invalid) = token::validate_token(token.as_str()) {

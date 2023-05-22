@@ -41,7 +41,7 @@ impl Event {
     /// TODO: Use an axum extractor for this
     pub fn from_bytes(_: &EventQuery, bytes: Bytes) -> Result<Vec<Event>>{
         let d = GzDecoder::new(bytes.reader());
-        let event = serde_json::from_reader(d).unwrap();
+        let event = serde_json::from_reader(d)?;
 
         Ok(event)
     }
