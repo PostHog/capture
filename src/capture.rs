@@ -6,12 +6,12 @@ use axum::{http::StatusCode, Json};
 // TODO: stream this instead
 use axum::extract::Query;
 
+use crate::api::CaptureResponseCode;
 use crate::{
     api::CaptureResponse,
     event::{Event, EventQuery},
     token,
 };
-use crate::api::CaptureResponseCode;
 
 pub async fn event(
     meta: Query<EventQuery>,
@@ -39,7 +39,9 @@ pub async fn event(
         return Err((StatusCode::BAD_REQUEST, msg));
     }
 
-    Ok(Json(CaptureResponse { status: CaptureResponseCode::Ok }))
+    Ok(Json(CaptureResponse {
+        status: CaptureResponseCode::Ok,
+    }))
 }
 
 pub fn process_events(events: &[Event]) -> Result<(), String> {
