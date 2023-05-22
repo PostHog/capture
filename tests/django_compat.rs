@@ -6,6 +6,7 @@ use std::io::{BufRead, BufReader};
 use serde::Deserialize;
 use serde_json::Value;
 use time::OffsetDateTime;
+use capture::event::ProcessedEvent;
 
 /*
             "path": request.get_full_path(),
@@ -26,7 +27,7 @@ struct RequestDump {
     ip: String,
     now: String,
     body: String,
-    output: Vec<Value>,
+    output: Vec<ProcessedEvent>,
 }
 
 static REQUESTS_DUMP_FILE_NAME: &str = "tests/requests_dump.jsonl";
@@ -39,7 +40,6 @@ async fn it_matches_django_capture_behaviour() {
         let request: RequestDump = serde_json::from_str(&line.unwrap()).unwrap();
 
         OffsetDateTime::now_utc();
-
 
         println!("{:?}", request);
     }
