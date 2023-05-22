@@ -1,12 +1,12 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-// use axum::http::StatusCode;
-// use axum::Router;
-// use axum_test_helper::TestClient;
+use axum::http::StatusCode;
+use axum_test_helper::TestClient;
 use serde::Deserialize;
 use serde_json::Value;
 use time::OffsetDateTime;
 use capture::event::ProcessedEvent;
+use capture::router::router;
 
 /*
             "path": request.get_full_path(),
@@ -33,15 +33,27 @@ struct RequestDump {
 static REQUESTS_DUMP_FILE_NAME: &str = "tests/requests_dump.jsonl";
 
 #[tokio::test]
-async fn it_matches_django_capture_behaviour() {
-    let file = File::open(REQUESTS_DUMP_FILE_NAME).expect("could not find input file");
+async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
+    let file = File::open(REQUESTS_DUMP_FILE_NAME)?;
     let reader = BufReader::new(file);
     for line in reader.lines() {
-        let request: RequestDump = serde_json::from_str(&line.unwrap()).unwrap();
+        let request: RequestDump = serde_json::from_str(&line?)?;
 
-        OffsetDateTime::now_utc();
+        if request.path.starts_with("/s") {
+        println!("Skipping {} dump", &request.path);
+            continue
+        }
 
-        println!("{:?}", request);
+        println!("{:?}", &request);
+        // TODO: massage data
+
+        let app = router();
+        let client = TestClient::new(app);
+        let res = client.post("/e/").send().await;
+        assert_eq!(res.status(), StatusCode::OK, "Unexpected response: {}", res.body());
+
+        //println!("{:?}", request);
     }
+    Ok(())
 }
 

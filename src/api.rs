@@ -13,4 +13,6 @@ pub struct CaptureRequest {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct CaptureResponse {}
+pub struct CaptureResponse {
+    pub status: u8,
+}
