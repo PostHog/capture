@@ -70,12 +70,6 @@ pub fn process_events(events: &[Event]) -> Result<(), String> {
     Ok(())
 }
 
-// A group of events! There is no limit here, though our HTTP stack will reject anything above
-// 20mb.
-pub async fn batch() -> &'static str {
-    "No batching for you!"
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
