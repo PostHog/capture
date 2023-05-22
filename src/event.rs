@@ -23,10 +23,10 @@ pub struct EventQuery {
     version: String,
 
     #[serde(alias = "_")]
-    timestamp: i64,
+    sent_at: i64,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Default, Debug, Deserialize, Serialize)]
 pub struct Event {
     #[serde(alias = "$token", alias = "api_key")]
     pub token: Option<String>,
