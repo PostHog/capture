@@ -1,5 +1,6 @@
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
+use tokio::task::JoinSet;
 
 use rdkafka::config::ClientConfig;
 use rdkafka::producer::future_producer::{FutureProducer, FutureRecord};
@@ -40,7 +41,7 @@ pub struct KafkaSink {
 }
 
 impl KafkaSink {
-    fn new(topic: String, brokers: String) -> Result<KafkaSink>{
+    pub fn new(topic: String, brokers: String) -> Result<KafkaSink>{
         let producer: FutureProducer = ClientConfig::new()
                 .set("bootstrap.servers", &brokers)
                 .create()?;
@@ -52,15 +53,14 @@ impl KafkaSink {
     }
 }
 
-#[async_trait]
-impl EventSink for KafkaSink {
-    async fn send(&self, event: ProcessedEvent) -> Result<()> {
+impl KafkaSink{
+    async fn kafka_send(producer: FutureProducer, topic: String, event: ProcessedEvent) -> Result<()>{
         let payload = serde_json::to_string(&event)?;
 
         let key = event.key();
 
-        match self.producer.send_result(FutureRecord{
-            topic: self.topic.as_str(),
+        match producer.send_result(FutureRecord{
+            topic: topic.as_str(),
             payload: Some(&payload),
             partition: None,
             key: Some(&key),
@@ -78,12 +78,30 @@ impl EventSink for KafkaSink {
         
         Ok(())
     }
+}
+
+#[async_trait]
+impl EventSink for KafkaSink {
+    async fn send(&self, event: ProcessedEvent) -> Result<()> {
+        Self::kafka_send(self.producer.clone(), self.topic.clone(), event).await
+    }
 
     async fn send_batch(&self, events: Vec<ProcessedEvent>) -> Result<()> {
+        let mut set = JoinSet::new();
+
         for event in events {
-            self.send(event).await?;
+            let producer = self.producer.clone();
+            let topic = self.topic.clone();
+
+            set.spawn(
+                Self::kafka_send(producer, topic, event)
+            );
         }
-        
+
+        while let Some(res) = set.join_next().await {
+            println!("{:?}", res);
+        }
+
         Ok(())
     }
 }
