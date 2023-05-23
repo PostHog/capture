@@ -37,7 +37,8 @@ pub struct EventFormData {
 pub struct Event {
     #[serde(alias = "$token", alias = "api_key")]
     pub token: Option<String>,
-
+    pub distinct_id: Option<String>,
+    pub uuid: Option<Uuid>,
     pub event: String,
     pub properties: HashMap<String, Value>,
 }
