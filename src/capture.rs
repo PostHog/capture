@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::io::Read;
+use std::ops::Deref;
 
 use anyhow::Result;
 use bytes::Bytes;
@@ -8,24 +10,33 @@ use axum::{http::StatusCode, Json};
 // TODO: stream this instead
 use axum::extract::{Query, State};
 use uuid::Uuid;
+use axum::http::{HeaderMap, HeaderValue};
 
 use crate::api::CaptureResponseCode;
 use crate::event::ProcessedEvent;
 
 use crate::{
     api::CaptureResponse,
-    event::{Event, EventQuery},
+    event::{Event, EventQuery, EventFormData},
     router, sink, token,
 };
 
 pub async fn event(
     state: State<router::State>,
     meta: Query<EventQuery>,
+    headers: HeaderMap,
     body: Bytes,
 ) -> Result<Json<CaptureResponse>, (StatusCode, String)> {
     tracing::debug!(len = body.len(), "new event request");
 
-    let events = Event::from_bytes(&meta, body);
+    let events = match headers.get("content-type").map_or("", |v| v.to_str().unwrap_or("")) {
+        "application/x-www-form-urlencoded" => {
+            let input: EventFormData = serde_urlencoded::from_bytes(body.deref()).unwrap();
+            println!("{:?}", &input);
+            Event::from_bytes(&meta, input.data.into())
+        }
+        _  => Event::from_bytes(&meta, body)
+    };
 
     let events = match events {
         Ok(events) => events,

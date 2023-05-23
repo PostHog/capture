@@ -28,6 +28,11 @@ pub struct EventQuery {
     sent_at: Option<i64>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct EventFormData {
+    pub data: String
+}
+
 #[derive(Default, Debug, Deserialize, Serialize)]
 pub struct Event {
     #[serde(alias = "$token", alias = "api_key")]
@@ -56,7 +61,7 @@ impl Event {
 
                 Ok(event)
             }
-            None => Ok(serde_json::from_reader(bytes.reader())?),
+            None => Ok(serde_json::from_reader(bytes.reader()).unwrap()),
         }
     }
 }

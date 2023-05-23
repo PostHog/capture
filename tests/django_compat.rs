@@ -49,7 +49,6 @@ async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
 
         let raw_body = general_purpose::STANDARD.decode(&case.body)?;
         assert_eq!(case.method, "POST", "update code to handle method {}", case.method);
-        assert!(case.ip.is_empty(), "update code to pass IP as X-Forwarded-For header");
 
         let app = router();
         let client = TestClient::new(app);
@@ -59,6 +58,9 @@ async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
         }
         if !case.content_type.is_empty() {
             req = req.header("Content-type", case.content_type);
+        }
+        if !case.ip.is_empty() {
+            req = req.header("X-Forwarded-For", case.ip);
         }
         let res = req.send().await;
 
