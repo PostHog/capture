@@ -11,7 +11,7 @@ pub struct State {
     pub timesource: Arc<dyn TimeSource + Send + Sync>,
 }
 
-pub fn router<TZ: TimeSource + Clone + Send + Sync + 'static>(timesource: TZ) -> Router {
+pub fn router<TZ: TimeSource + Send + Sync + 'static>(timesource: TZ) -> Router {
     let state = State {
         sink: Arc::new(sink::PrintSink {}),
         timesource: Arc::new(timesource),
