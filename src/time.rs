@@ -15,13 +15,3 @@ impl TimeSource for SystemTime {
     }
 }
 
-#[derive(Clone)]
-pub struct FixedTime {
-    pub time: time::OffsetDateTime,
-}
-
-impl TimeSource for FixedTime {
-    fn current_time(&self) -> String {
-        self.time.to_string()
-    }
-}

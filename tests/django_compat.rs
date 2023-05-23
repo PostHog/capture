@@ -3,9 +3,9 @@ use axum_test_helper::TestClient;
 use capture::event::ProcessedEvent;
 use capture::router::router;
 use serde::Deserialize;
-use serde_json::Value;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use capture::time::TimeSource;
 use time::OffsetDateTime;
 
 /*
@@ -32,6 +32,17 @@ struct RequestDump {
 
 static REQUESTS_DUMP_FILE_NAME: &str = "tests/requests_dump.jsonl";
 
+#[derive(Clone)]
+pub struct FixedTime {
+    pub time: time::OffsetDateTime,
+}
+
+impl TimeSource for FixedTime {
+    fn current_time(&self) -> String {
+        self.time.to_string()
+    }
+}
+
 #[ignore]
 #[tokio::test]
 async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
@@ -48,7 +59,9 @@ async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
         println!("{:?}", &request);
         // TODO: massage data
 
-        let app = router();
+        let timesource = FixedTime{time: OffsetDateTime::now_utc()};
+        let app = router(timesource);
+
         let client = TestClient::new(app);
         let res = client.post("/e/").send().await;
         assert_eq!(res.status(), StatusCode::OK, "{}", res.text().await);
