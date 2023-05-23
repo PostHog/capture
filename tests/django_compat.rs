@@ -13,7 +13,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::sync::{Arc, Mutex};
 use assert_json_diff::assert_json_eq;
-use serde_json::json;
+use serde_json::{json, Value};
 
 #[derive(Debug, Deserialize)]
 struct RequestDump {
@@ -24,7 +24,7 @@ struct RequestDump {
     ip: String,
     now: String,
     body: String,
-    output: Vec<ProcessedEvent>,
+    output: Vec<Value>,
 }
 
 static REQUESTS_DUMP_FILE_NAME: &str = "tests/requests_dump.jsonl";
