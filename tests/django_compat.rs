@@ -26,6 +26,7 @@ static REQUESTS_DUMP_FILE_NAME: &str = "tests/requests_dump.jsonl";
 async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
     let file = File::open(REQUESTS_DUMP_FILE_NAME)?;
     let reader = BufReader::new(file);
+
     for line in reader.lines() {
         let case: RequestDump = serde_json::from_str(&line?)?;
 

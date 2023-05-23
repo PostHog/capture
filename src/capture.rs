@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::io::Read;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -9,7 +8,7 @@ use bytes::Bytes;
 use axum::{http::StatusCode, Json};
 // TODO: stream this instead
 use axum::extract::{Query, State};
-use axum::http::{HeaderMap, HeaderValue};
+use axum::http::HeaderMap;
 use base64::Engine;
 use uuid::Uuid;
 
