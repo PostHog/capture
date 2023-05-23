@@ -14,4 +14,3 @@ impl TimeSource for SystemTime {
             .expect("failed to iso8601 format timestamp")
     }
 }
-

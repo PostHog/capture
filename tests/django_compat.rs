@@ -4,10 +4,10 @@ use base64::engine::general_purpose;
 use base64::Engine;
 use capture::event::ProcessedEvent;
 use capture::router::router;
+use capture::time::TimeSource;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use capture::time::TimeSource;
 use time::OffsetDateTime;
 
 #[derive(Debug, Deserialize)]
@@ -55,7 +55,9 @@ async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
             case.method
         );
 
-        let timesource = FixedTime{time: OffsetDateTime::now_utc()};
+        let timesource = FixedTime {
+            time: OffsetDateTime::now_utc(),
+        };
         let app = router(timesource);
 
         let client = TestClient::new(app);
