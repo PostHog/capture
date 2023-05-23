@@ -68,6 +68,7 @@ impl Event {
         }
         Err(anyhow!("unknown input shape"))
     }
+
 }
 
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]
@@ -80,6 +81,12 @@ pub struct ProcessedEvent {
     pub now: String,
     pub sent_at: String,
     pub token: String,
+}
+
+impl ProcessedEvent {
+    pub fn key(&self) -> String {
+        format!("{}:{}", self.token, self.distinct_id)
+    }
 }
 
 #[cfg(test)]
