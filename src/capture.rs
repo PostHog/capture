@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use bytes::Bytes;
 
 use axum::{http::StatusCode, Json};
@@ -10,15 +10,12 @@ use axum::{http::StatusCode, Json};
 use axum::extract::{Query, State};
 use axum::http::HeaderMap;
 use base64::Engine;
-use uuid::Uuid;
-
-use crate::api::CaptureResponseCode;
-use crate::event::ProcessedEvent;
 
 use crate::{
-    api::CaptureResponse,
-    event::{Event, EventFormData, EventQuery},
+    api::{CaptureResponse,CaptureResponseCode},
+    event::{Event, EventFormData, EventQuery, ProcessedEvent},
     router, sink, token,
+    utils::uuid_v7
 };
 
 pub async fn event(
@@ -71,11 +68,22 @@ pub async fn event(
     }))
 }
 
-pub fn process_single_event(_event: &Event) -> Result<ProcessedEvent> {
-    // TODO: Put actual data in here and transform it properly
+pub fn process_single_event(event: &Event) -> Result<ProcessedEvent> {
+    let distinct_id = match &event.distinct_id {
+        Some(id) => id,
+        None => {
+            match event.properties.get("distinct_id").map(|v| v.as_str()) {
+                Some(Some(id)) => id,
+                _ => {
+                    return Err(anyhow!("missing distinct_id"))
+                },
+            }
+        }
+    };
+
     Ok(ProcessedEvent {
-        uuid: Uuid::new_v4(),
-        distinct_id: Uuid::new_v4().simple().to_string(),
+        uuid: event.uuid.unwrap_or_else(uuid_v7),
+        distinct_id: distinct_id.to_string(),
         ip: String::new(),
         site_url: String::new(),
         data: String::from("hallo I am some data 😊"),
@@ -159,11 +167,15 @@ mod tests {
         let events = vec![
             Event {
                 token: Some(String::from("hello")),
+                distinct_id: Some("testing".to_string()),
+                uuid: None,
                 event: String::new(),
                 properties: HashMap::new(),
             },
             Event {
                 token: None,
+                distinct_id: Some("testing".to_string()),
+                uuid: None,
                 event: String::new(),
                 properties: HashMap::from([(String::from("token"), json!("hello"))]),
             },
@@ -183,11 +195,15 @@ mod tests {
         let events = vec![
             Event {
                 token: Some(String::from("hello")),
+                distinct_id: Some("testing".to_string()),
+                uuid: None,
                 event: String::new(),
                 properties: HashMap::new(),
             },
             Event {
                 token: None,
+                distinct_id: Some("testing".to_string()),
+                uuid: None,
                 event: String::new(),
                 properties: HashMap::from([(String::from("token"), json!("goodbye"))]),
             },
