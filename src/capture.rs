@@ -1,7 +1,7 @@
 use std::collections::HashSet;
-use std::sync::Arc;
 use std::io::Read;
 use std::ops::Deref;
+use std::sync::Arc;
 
 use anyhow::Result;
 use bytes::Bytes;
@@ -9,15 +9,16 @@ use bytes::Bytes;
 use axum::{http::StatusCode, Json};
 // TODO: stream this instead
 use axum::extract::{Query, State};
-use uuid::Uuid;
 use axum::http::{HeaderMap, HeaderValue};
+use base64::Engine;
+use uuid::Uuid;
 
 use crate::api::CaptureResponseCode;
 use crate::event::ProcessedEvent;
 
 use crate::{
     api::CaptureResponse,
-    event::{Event, EventQuery, EventFormData},
+    event::{Event, EventFormData, EventQuery},
     router, sink, token,
 };
 
@@ -29,13 +30,18 @@ pub async fn event(
 ) -> Result<Json<CaptureResponse>, (StatusCode, String)> {
     tracing::debug!(len = body.len(), "new event request");
 
-    let events = match headers.get("content-type").map_or("", |v| v.to_str().unwrap_or("")) {
+    let events = match headers
+        .get("content-type")
+        .map_or("", |v| v.to_str().unwrap_or(""))
+    {
         "application/x-www-form-urlencoded" => {
             let input: EventFormData = serde_urlencoded::from_bytes(body.deref()).unwrap();
-            println!("{:?}", &input);
-            Event::from_bytes(&meta, input.data.into())
+            let payload = base64::engine::general_purpose::STANDARD
+                .decode(input.data)
+                .unwrap();
+            Event::from_bytes(&meta, payload.into())
         }
-        _  => Event::from_bytes(&meta, body)
+        _ => Event::from_bytes(&meta, body),
     };
 
     let events = match events {
@@ -48,6 +54,8 @@ pub async fn event(
             ));
         }
     };
+
+    println!("Got events {:?}", &events);
 
     if events.is_empty() {
         return Err((StatusCode::BAD_REQUEST, String::from("No events in batch")));
