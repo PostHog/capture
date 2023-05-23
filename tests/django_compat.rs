@@ -12,7 +12,6 @@ use serde::Deserialize;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::sync::{Arc, Mutex};
-use time::OffsetDateTime;
 
 #[derive(Debug, Deserialize)]
 struct RequestDump {
@@ -30,7 +29,7 @@ static REQUESTS_DUMP_FILE_NAME: &str = "tests/requests_dump.jsonl";
 
 #[derive(Clone)]
 pub struct FixedTime {
-    pub time: time::OffsetDateTime,
+    pub time: String,
 }
 
 impl TimeSource for FixedTime {
@@ -83,9 +82,7 @@ async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
         );
 
         let sink = MemorySink::default();
-        let timesource = FixedTime {
-            time: OffsetDateTime::now_utc(),
-        };
+        let timesource = FixedTime { time: case.now };
         let app = router(timesource, sink.clone());
 
         let client = TestClient::new(app);
