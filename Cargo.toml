@@ -25,5 +25,6 @@ async-trait = "0.1.68"
 serde_urlencoded = "0.7.1"
 
 [dev-dependencies]
+assert-json-diff = "2.0.2"
 axum-test-helper = "0.2.0"
 mockall = "0.11.2"

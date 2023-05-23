@@ -12,6 +12,8 @@ use serde::Deserialize;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::sync::{Arc, Mutex};
+use assert_json_diff::assert_json_eq;
+use serde_json::json;
 
 #[derive(Debug, Deserialize)]
 struct RequestDump {
@@ -46,6 +48,10 @@ struct MemorySink {
 impl MemorySink {
     fn len(&self) -> usize {
         self.events.lock().unwrap().len()
+    }
+
+    fn events(&self) -> Vec<ProcessedEvent> {
+        self.events.lock().unwrap().clone()
     }
 }
 
@@ -104,7 +110,8 @@ async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
             }),
             res.json().await
         );
-        assert_eq!(sink.len(), case.output.len())
+        assert_eq!(sink.len(), case.output.len());
+        assert_json_eq!(json!(case.output),json!(sink.events()))
     }
     Ok(())
 }
