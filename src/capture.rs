@@ -53,7 +53,7 @@ pub async fn event(
     }))
 }
 
-pub fn process_single_event(event: &Event) -> Result<ProcessedEvent> {
+pub fn process_single_event(_event: &Event) -> Result<ProcessedEvent> {
     // TODO: Put actual data in here and transform it properly
     Ok(ProcessedEvent {
         uuid: Uuid::new_v4(),
