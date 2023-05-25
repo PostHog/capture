@@ -1,5 +1,5 @@
-use std::net::SocketAddr;
 use std::env;
+use std::net::SocketAddr;
 
 use crate::time::SystemTime;
 
@@ -26,10 +26,8 @@ async fn main() {
         router::router(SystemTime {}, sink)
     };
 
-
     // initialize tracing
     tracing_subscriber::fmt::init();
-
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`

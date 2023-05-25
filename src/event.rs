@@ -68,7 +68,6 @@ impl Event {
         }
         Err(anyhow!("unknown input shape"))
     }
-
 }
 
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]

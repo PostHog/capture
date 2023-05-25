@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use tokio::task::JoinSet;
 
@@ -41,41 +41,42 @@ pub struct KafkaSink {
 }
 
 impl KafkaSink {
-    pub fn new(topic: String, brokers: String) -> Result<KafkaSink>{
+    pub fn new(topic: String, brokers: String) -> Result<KafkaSink> {
         let producer: FutureProducer = ClientConfig::new()
-                .set("bootstrap.servers", &brokers)
-                .create()?;
+            .set("bootstrap.servers", &brokers)
+            .create()?;
 
-        Ok(KafkaSink{
-            producer,
-            topic
-        })
+        Ok(KafkaSink { producer, topic })
     }
 }
 
-impl KafkaSink{
-    async fn kafka_send(producer: FutureProducer, topic: String, event: ProcessedEvent) -> Result<()>{
+impl KafkaSink {
+    async fn kafka_send(
+        producer: FutureProducer,
+        topic: String,
+        event: ProcessedEvent,
+    ) -> Result<()> {
         let payload = serde_json::to_string(&event)?;
 
         let key = event.key();
 
-        match producer.send_result(FutureRecord{
+        match producer.send_result(FutureRecord {
             topic: topic.as_str(),
             payload: Some(&payload),
             partition: None,
             key: Some(&key),
             timestamp: None,
             headers: None,
-        }){
-            Ok(_) => {},
+        }) {
+            Ok(_) => {}
             Err(e) => {
                 tracing::error!("failed to produce event: {}", e.0);
 
                 // TODO: Improve error handling
                 return Err(anyhow!("failed to produce event {}", e.0));
-            },
+            }
         }
-        
+
         Ok(())
     }
 }
@@ -93,9 +94,7 @@ impl EventSink for KafkaSink {
             let producer = self.producer.clone();
             let topic = self.topic.clone();
 
-            set.spawn(
-                Self::kafka_send(producer, topic, event)
-            );
+            set.spawn(Self::kafka_send(producer, topic, event));
         }
 
         while let Some(res) = set.join_next().await {
