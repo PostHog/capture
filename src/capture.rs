@@ -5,8 +5,8 @@ use std::sync::Arc;
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
 
-use axum::{http::StatusCode, Json};
 use axum::body::HttpBody;
+use axum::{http::StatusCode, Json};
 // TODO: stream this instead
 use axum::extract::{Query, State};
 use axum::http::HeaderMap;
@@ -15,10 +15,10 @@ use base64::Engine;
 use serde_json::Value;
 
 use crate::{
-    api::{CaptureResponse,CaptureResponseCode},
-    event::{RawEvent, EventFormData, EventQuery, ProcessedEvent},
+    api::{CaptureResponse, CaptureResponseCode},
+    event::{EventFormData, EventQuery, ProcessedEvent, RawEvent},
     router, sink, token,
-    utils::uuid_v7
+    utils::uuid_v7,
 };
 
 pub async fn event(
@@ -81,14 +81,10 @@ pub async fn event(
 pub fn process_single_event(event: &RawEvent, query: &EventQuery) -> Result<ProcessedEvent> {
     let distinct_id = match &event.distinct_id {
         Some(id) => id,
-        None => {
-            match event.properties.get("distinct_id").map(|v| v.as_str()) {
-                Some(Some(id)) => id,
-                _ => {
-                    return Err(anyhow!("missing distinct_id"))
-                },
-            }
-        }
+        None => match event.properties.get("distinct_id").map(|v| v.as_str()) {
+            Some(Some(id)) => id,
+            _ => return Err(anyhow!("missing distinct_id")),
+        },
     };
 
     Ok(ProcessedEvent {
@@ -103,9 +99,7 @@ pub fn process_single_event(event: &RawEvent, query: &EventQuery) -> Result<Proc
     })
 }
 
-pub fn extract_and_verify_token(
-        events: &[RawEvent]
-) -> Result<String, String> {
+pub fn extract_and_verify_token(events: &[RawEvent]) -> Result<String, String> {
     let mut request_token: Option<String> = None;
 
     // Collect the token from the batch, detect multiples to reject request
@@ -117,7 +111,7 @@ pub fn extract_and_verify_token(
                 _ => {
                     return Err("event with no token".into());
                 }
-            }
+            },
         };
         if let Some(token) = &request_token {
             if !token.eq(&event_token) {
@@ -133,11 +127,10 @@ pub fn extract_and_verify_token(
     request_token.ok_or("no token found in request".into())
 }
 
-
 pub async fn process_events(
     sink: Arc<dyn sink::EventSink + Send + Sync>,
     events: &[RawEvent],
-    query: &EventQuery
+    query: &EventQuery,
 ) -> Result<(), String> {
     let mut distinct_tokens = HashSet::new();
 
@@ -161,7 +154,11 @@ pub async fn process_events(
         return Err(String::from("Number of distinct tokens in batch > 1"));
     }
 
-    let events: Vec<ProcessedEvent> = match events.iter().map(|e| process_single_event(e, query)).collect() {
+    let events: Vec<ProcessedEvent> = match events
+        .iter()
+        .map(|e| process_single_event(e, query))
+        .collect()
+    {
         Err(_) => return Err(String::from("Failed to process all events")),
         Ok(events) => events,
     };
@@ -187,14 +184,12 @@ pub async fn process_events(
     Ok(())
 }
 
-
-
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-    use serde_json::json;
     use crate::capture::extract_and_verify_token;
     use crate::event::RawEvent;
+    use serde_json::json;
+    use std::collections::HashMap;
 
     #[tokio::test]
     async fn all_events_have_same_token() {

@@ -104,7 +104,7 @@ mod tests {
     use base64::Engine as _;
     use bytes::Bytes;
 
-    use super::{RawEvent, EventQuery};
+    use super::{EventQuery, RawEvent};
 
     #[test]
     fn decode_bytes() {

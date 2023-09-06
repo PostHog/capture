@@ -1,3 +1,4 @@
+use assert_json_diff::assert_json_eq;
 use async_trait::async_trait;
 use axum::http::StatusCode;
 use axum_test_helper::TestClient;
@@ -9,11 +10,10 @@ use capture::router::router;
 use capture::sink::EventSink;
 use capture::time::TimeSource;
 use serde::Deserialize;
+use serde_json::{json, Value};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::sync::{Arc, Mutex};
-use assert_json_diff::assert_json_eq;
-use serde_json::{json, Value};
 
 #[derive(Debug, Deserialize)]
 struct RequestDump {
@@ -111,7 +111,7 @@ async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
             res.json().await
         );
         assert_eq!(sink.len(), case.output.len());
-        assert_json_eq!(json!(case.output),json!(sink.events()))
+        assert_json_eq!(json!(case.output), json!(sink.events()))
     }
     Ok(())
 }
