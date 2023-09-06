@@ -9,22 +9,27 @@ use axum::{http::StatusCode, Json};
 // TODO: stream this instead
 use axum::extract::{Query, State};
 use axum::http::HeaderMap;
+use axum_client_ip::InsecureClientIp;
 use base64::Engine;
 
 use crate::{
     api::{CaptureResponse,CaptureResponseCode},
-    event::{Event, EventFormData, EventQuery, ProcessedEvent},
+    event::{RawEvent, EventFormData, EventQuery, ProcessedEvent},
     router, sink, token,
     utils::uuid_v7
 };
 
 pub async fn event(
     state: State<router::State>,
-    meta: Query<EventQuery>,
+    InsecureClientIp(ip): InsecureClientIp,
+    mut meta: Query<EventQuery>,
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Json<CaptureResponse>, (StatusCode, String)> {
     tracing::debug!(len = body.len(), "new event request");
+
+    meta.now = Some(state.timesource.current_time());
+    meta.client_ip = Some(ip.to_string());
 
     let events = match headers
         .get("content-type")
@@ -35,9 +40,9 @@ pub async fn event(
             let payload = base64::engine::general_purpose::STANDARD
                 .decode(input.data)
                 .unwrap();
-            Event::from_bytes(&meta, payload.into())
+            RawEvent::from_bytes(&meta, payload.into())
         }
-        _ => Event::from_bytes(&meta, body),
+        _ => RawEvent::from_bytes(&meta, body),
     };
 
     let events = match events {
@@ -57,7 +62,7 @@ pub async fn event(
         return Err((StatusCode::BAD_REQUEST, String::from("No events in batch")));
     }
 
-    let processed = process_events(state.sink.clone(), &events).await;
+    let processed = process_events(state.sink.clone(), &events, &meta).await;
 
     if let Err(msg) = processed {
         return Err((StatusCode::BAD_REQUEST, msg));
@@ -68,7 +73,7 @@ pub async fn event(
     }))
 }
 
-pub fn process_single_event(event: &Event) -> Result<ProcessedEvent> {
+pub fn process_single_event(event: &RawEvent, query: &EventQuery) -> Result<ProcessedEvent> {
     let distinct_id = match &event.distinct_id {
         Some(id) => id,
         None => {
@@ -84,10 +89,10 @@ pub fn process_single_event(event: &Event) -> Result<ProcessedEvent> {
     Ok(ProcessedEvent {
         uuid: event.uuid.unwrap_or_else(uuid_v7),
         distinct_id: distinct_id.to_string(),
-        ip: String::new(),
+        ip: query.client_ip.clone().unwrap_or_default(),
         site_url: String::new(),
         data: String::from("hallo I am some data 😊"),
-        now: String::new(),
+        now: query.now.clone().unwrap_or_default(),
         sent_at: String::new(),
         token: String::from("tokentokentoken"),
     })
@@ -95,7 +100,8 @@ pub fn process_single_event(event: &Event) -> Result<ProcessedEvent> {
 
 pub async fn process_events(
     sink: Arc<dyn sink::EventSink + Send + Sync>,
-    events: &[Event],
+    events: &[RawEvent],
+    query: &EventQuery
 ) -> Result<(), String> {
     let mut distinct_tokens = HashSet::new();
 
@@ -119,7 +125,7 @@ pub async fn process_events(
         return Err(String::from("Number of distinct tokens in batch > 1"));
     }
 
-    let events: Vec<ProcessedEvent> = match events.iter().map(process_single_event).collect() {
+    let events: Vec<ProcessedEvent> = match events.iter().map(|e| process_single_event(e, query)).collect() {
         Err(_) => return Err(String::from("Failed to process all events")),
         Ok(events) => events,
     };
@@ -145,6 +151,8 @@ pub async fn process_events(
     Ok(())
 }
 
+
+
 #[cfg(test)]
 mod tests {
     use crate::sink;
@@ -154,7 +162,7 @@ mod tests {
     use serde_json::json;
 
     use super::process_events;
-    use crate::event::Event;
+    use crate::event::{EventQuery, RawEvent};
     use crate::router::State;
 
     #[tokio::test]
@@ -163,16 +171,17 @@ mod tests {
             sink: Arc::new(sink::PrintSink {}),
             timesource: Arc::new(crate::time::SystemTime {}),
         };
+        let meta = EventQuery::default();
 
         let events = vec![
-            Event {
+            RawEvent {
                 token: Some(String::from("hello")),
                 distinct_id: Some("testing".to_string()),
                 uuid: None,
                 event: String::new(),
                 properties: HashMap::new(),
             },
-            Event {
+            RawEvent {
                 token: None,
                 distinct_id: Some("testing".to_string()),
                 uuid: None,
@@ -181,7 +190,7 @@ mod tests {
             },
         ];
 
-        let processed = process_events(state.sink, &events).await;
+        let processed = process_events(state.sink, &events, &meta).await;
         assert_eq!(processed.is_ok(), true);
     }
 
@@ -191,16 +200,17 @@ mod tests {
             sink: Arc::new(sink::PrintSink {}),
             timesource: Arc::new(crate::time::SystemTime {}),
         };
+        let meta = EventQuery::default();
 
         let events = vec![
-            Event {
+            RawEvent {
                 token: Some(String::from("hello")),
                 distinct_id: Some("testing".to_string()),
                 uuid: None,
                 event: String::new(),
                 properties: HashMap::new(),
             },
-            Event {
+            RawEvent {
                 token: None,
                 distinct_id: Some("testing".to_string()),
                 uuid: None,
@@ -209,7 +219,7 @@ mod tests {
             },
         ];
 
-        let processed = process_events(state.sink, &events).await;
+        let processed = process_events(state.sink, &events, &meta).await;
         assert_eq!(processed.is_err(), true);
     }
 }
