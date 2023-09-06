@@ -28,6 +28,9 @@ pub struct EventQuery {
     pub sent_at: Option<i64>,
 
     #[serde(skip_serializing)]
+    pub token: Option<String>, // Filled by handler
+
+    #[serde(skip_serializing)]
     pub now: Option<String>, // Filled by handler from timesource
 
     #[serde(skip_serializing)]
@@ -116,6 +119,7 @@ mod tests {
                 compression: Some(Compression::GzipJs),
                 lib_version: None,
                 sent_at: None,
+                token: None,
                 now: None,
                 client_ip: None,
             },
