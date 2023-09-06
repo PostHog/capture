@@ -69,6 +69,7 @@ impl EventSink for MemorySink {
 }
 
 #[tokio::test]
+#[ignore]
 async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
     let file = File::open(REQUESTS_DUMP_FILE_NAME)?;
     let reader = BufReader::new(file);

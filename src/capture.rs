@@ -5,7 +5,6 @@ use std::sync::Arc;
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
 
-use axum::body::HttpBody;
 use axum::{http::StatusCode, Json};
 // TODO: stream this instead
 use axum::extract::{Query, State};
