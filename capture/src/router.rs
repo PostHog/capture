@@ -27,25 +27,40 @@ pub fn router<
 >(
     timesource: TZ,
     sink: S,
+    metrics: bool,
 ) -> Router {
     let state = State {
         sink: Arc::new(sink),
         timesource: Arc::new(timesource),
     };
 
-    let recorder_handle = setup_metrics_recorder();
-
-    Router::new()
+    let router = Router::new()
         // TODO: use NormalizePathLayer::trim_trailing_slash
         // I've added GET routes as well, which for now just return "capture"
         // We could possibly make them return something useful (eg, schema)
         .route("/", get(index))
         .route("/i", post(capture::event))
         .route("/i/", post(capture::event))
+        .route("/s", post(capture::event))
+        .route("/s/", post(capture::event))
+        .route("/engage", post(capture::event))
+        .route("/engage/", post(capture::event))
+        .route("/e", post(capture::event))
+        .route("/e/", post(capture::event))
         .route("/i", get(index))
         .route("/i/", get(index))
-        .route("/metrics", get(move || ready(recorder_handle.render())))
         .layer(TraceLayer::new_for_http())
         .layer(axum::middleware::from_fn(track_metrics))
-        .with_state(state)
+        .with_state(state);
+
+    // Don't install metrics unless asked to
+    // Installing a global recorder when capture is used as a library (during tests etc)
+    // does not work well.
+    if metrics {
+        let recorder_handle = setup_metrics_recorder();
+
+        router.route("/metrics", get(move || ready(recorder_handle.render())))
+    } else {
+        router
+    }
 }

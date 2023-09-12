@@ -12,14 +12,14 @@ async fn main() {
     let address = env::var("ADDRESS").unwrap_or(String::from("127.0.0.1:3000"));
 
     let app = if use_print_sink {
-        router::router(time::SystemTime {}, sink::PrintSink {})
+        router::router(SystemTime {}, sink::PrintSink {}, true)
     } else {
         let brokers = env::var("KAFKA_BROKERS").expect("Expected KAFKA_BROKERS");
         let topic = env::var("KAFKA_TOPIC").expect("Expected KAFKA_TOPIC");
 
         let sink = sink::KafkaSink::new(topic, brokers).unwrap();
 
-        router::router(time::SystemTime {}, sink)
+        router::router(SystemTime {}, sink, true)
     };
 
     // initialize tracing
