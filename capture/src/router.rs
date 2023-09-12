@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::future::ready;
+use std::sync::Arc;
 
 use axum::{
     routing::{get, post},
@@ -9,7 +9,7 @@ use tower_http::trace::TraceLayer;
 
 use crate::{capture, sink, time::TimeSource};
 
-use crate::prometheus::{track_metrics, setup_metrics_recorder};
+use crate::prometheus::{setup_metrics_recorder, track_metrics};
 
 #[derive(Clone)]
 pub struct State {
