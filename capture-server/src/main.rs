@@ -3,6 +3,9 @@ use std::net::SocketAddr;
 
 use capture::{router, sink, time};
 
+use crate::time::SystemTime;
+use crate::{router, sink};
+
 #[tokio::main]
 async fn main() {
     let use_print_sink = env::var("PRINT_SINK").is_ok();

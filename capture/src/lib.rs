@@ -6,3 +6,4 @@ pub mod sink;
 pub mod time;
 pub mod token;
 pub mod utils;
+pub mod prometheus;
