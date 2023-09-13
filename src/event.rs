@@ -16,7 +16,6 @@ pub enum Compression {
     GzipJs,
 }
 
-#[allow(dead_code)] // until they are used
 #[derive(Deserialize, Default)]
 pub struct EventQuery {
     pub compression: Option<Compression>,
@@ -85,11 +84,18 @@ impl RawEvent {
             None => self
                 .properties
                 .get("token")
-                .map(Value::as_str)
-                .flatten()
+                .and_then(Value::as_str)
                 .map(String::from),
         }
     }
+}
+
+pub struct ProcessingContext {
+    pub lib_version: Option<String>,
+    pub sent_at: Option<i64>,
+    pub token: String,
+    pub now: String,
+    pub client_ip: String,
 }
 
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]

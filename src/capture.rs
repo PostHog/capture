@@ -12,7 +12,8 @@ use axum::http::HeaderMap;
 use axum_client_ip::InsecureClientIp;
 use base64::Engine;
 
-use crate::token::{validate_token, InvalidTokenReason};
+use crate::event::ProcessingContext;
+use crate::token::validate_token;
 use crate::{
     api::{CaptureResponse, CaptureResponseCode},
     event::{EventFormData, EventQuery, ProcessedEvent, RawEvent},
@@ -23,14 +24,11 @@ use crate::{
 pub async fn event(
     state: State<router::State>,
     InsecureClientIp(ip): InsecureClientIp,
-    mut meta: Query<EventQuery>,
+    meta: Query<EventQuery>,
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Json<CaptureResponse>, (StatusCode, String)> {
     tracing::debug!(len = body.len(), "new event request");
-
-    meta.now = Some(state.timesource.current_time());
-    meta.client_ip = Some(ip.to_string());
 
     let events = match headers
         .get("content-type")
@@ -62,11 +60,19 @@ pub async fn event(
     if events.is_empty() {
         return Err((StatusCode::BAD_REQUEST, String::from("No events in batch")));
     }
-    match extract_and_verify_token(&events) {
-        Ok(token) => meta.token = Some(token),
+    let token = match extract_and_verify_token(&events) {
+        Ok(token) => token,
         Err(msg) => return Err((StatusCode::UNAUTHORIZED, msg)),
-    }
-    let processed = process_events(state.sink.clone(), &events, &meta).await;
+    };
+    let context = ProcessingContext {
+        lib_version: meta.lib_version.clone(),
+        sent_at: meta.sent_at,
+        token,
+        now: state.timesource.current_time(),
+        client_ip: ip.to_string(),
+    };
+
+    let processed = process_events(state.sink.clone(), &events, &context).await;
 
     if let Err(msg) = processed {
         return Err((StatusCode::BAD_REQUEST, msg));
@@ -77,7 +83,10 @@ pub async fn event(
     }))
 }
 
-pub fn process_single_event(event: &RawEvent, query: &EventQuery) -> Result<ProcessedEvent> {
+pub fn process_single_event(
+    event: &RawEvent,
+    context: &ProcessingContext,
+) -> Result<ProcessedEvent> {
     let distinct_id = match &event.distinct_id {
         Some(id) => id,
         None => match event.properties.get("distinct_id").map(|v| v.as_str()) {
@@ -89,12 +98,12 @@ pub fn process_single_event(event: &RawEvent, query: &EventQuery) -> Result<Proc
     Ok(ProcessedEvent {
         uuid: event.uuid.unwrap_or_else(uuid_v7),
         distinct_id: distinct_id.to_string(),
-        ip: query.client_ip.clone().unwrap_or_default(),
+        ip: context.client_ip.clone(),
         site_url: String::new(),
         data: String::from("hallo I am some data 😊"),
-        now: query.now.clone().unwrap_or_default(),
+        now: context.now.clone(),
         sent_at: String::new(),
-        token: query.token.clone().unwrap_or_default(),
+        token: context.token.clone(),
     })
 }
 
@@ -122,11 +131,11 @@ pub fn extract_and_verify_token(events: &[RawEvent]) -> Result<String, String> {
 pub async fn process_events(
     sink: Arc<dyn sink::EventSink + Send + Sync>,
     events: &[RawEvent],
-    query: &EventQuery,
+    context: &ProcessingContext,
 ) -> Result<(), String> {
     let events: Vec<ProcessedEvent> = match events
         .iter()
-        .map(|e| process_single_event(e, query))
+        .map(|e| process_single_event(e, context))
         .collect()
     {
         Err(_) => return Err(String::from("Failed to process all events")),
