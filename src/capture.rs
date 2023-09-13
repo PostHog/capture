@@ -12,10 +12,11 @@ use axum::http::HeaderMap;
 use axum_client_ip::InsecureClientIp;
 use base64::Engine;
 
+use crate::token::{validate_token, InvalidTokenReason};
 use crate::{
     api::{CaptureResponse, CaptureResponseCode},
     event::{EventFormData, EventQuery, ProcessedEvent, RawEvent},
-    router, sink, token,
+    router, sink,
     utils::uuid_v7,
 };
 
@@ -108,7 +109,10 @@ pub fn extract_and_verify_token(events: &[RawEvent]) -> Result<String, String> {
     return match distinct_tokens.len() {
         0 => Err(String::from("no token found in request")),
         1 => match distinct_tokens.iter().last() {
-            Some(Some(token)) => Ok(token.clone()),
+            Some(Some(token)) => {
+                validate_token(token).map_err(|err| String::from(err.reason()))?;
+                Ok(token.clone())
+            }
             _ => Err(String::from("no token found in request")),
         },
         _ => Err(String::from("number of distinct tokens in batch > 1")),
