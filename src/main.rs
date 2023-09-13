@@ -15,6 +15,7 @@ mod utils;
 #[tokio::main]
 async fn main() {
     let use_print_sink = env::var("PRINT_SINK").is_ok();
+    let address = env::var("ADDRESS").unwrap_or(String::from("127.0.0.1:3000"));
 
     let app = if use_print_sink {
         router::router(SystemTime {}, sink::PrintSink {})
@@ -32,11 +33,10 @@ async fn main() {
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
 
-    tracing::debug!("listening on {}", addr);
+    tracing::info!("listening on {}", address);
 
-    axum::Server::bind(&addr)
+    axum::Server::bind(&address.parse().unwrap())
         .serve(app.into_make_service_with_connect_info::<SocketAddr>())
         .await
         .unwrap();
