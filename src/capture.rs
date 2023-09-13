@@ -11,7 +11,6 @@ use axum::extract::{Query, State};
 use axum::http::HeaderMap;
 use axum_client_ip::InsecureClientIp;
 use base64::Engine;
-use serde_json::Value;
 
 use crate::{
     api::{CaptureResponse, CaptureResponseCode},
@@ -103,15 +102,9 @@ pub fn extract_and_verify_token(events: &[RawEvent]) -> Result<String, String> {
 
     // Collect the token from the batch, detect multiples to reject request
     for event in events {
-        let event_token = match &event.token {
-            Some(value) => value.clone(),
-            None => match event.properties.get("token").map(Value::as_str) {
-                Some(Some(value)) => value.to_string(),
-                _ => {
-                    return Err("event with no token".into());
-                }
-            },
-        };
+        let event_token = event
+            .extract_token()
+            .ok_or(String::from("event without token"))?;
         if let Some(token) = &request_token {
             if !token.eq(&event_token) {
                 return Err("mismatched tokens in batch".into());

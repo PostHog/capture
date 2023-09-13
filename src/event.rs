@@ -78,6 +78,18 @@ impl RawEvent {
         }
         Err(anyhow!("unknown input shape"))
     }
+
+    pub fn extract_token(&self) -> Option<String> {
+        match &self.token {
+            Some(value) => Some(value.clone()),
+            None => self
+                .properties
+                .get("token")
+                .map(Value::as_str)
+                .flatten()
+                .map(String::from),
+        }
+    }
 }
 
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]
