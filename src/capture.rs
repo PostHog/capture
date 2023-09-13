@@ -11,6 +11,7 @@ use axum::extract::{Query, State};
 use axum::http::HeaderMap;
 use axum_client_ip::InsecureClientIp;
 use base64::Engine;
+use time::OffsetDateTime;
 
 use crate::event::ProcessingContext;
 use crate::token::validate_token;
@@ -64,9 +65,20 @@ pub async fn event(
         Ok(token) => token,
         Err(msg) => return Err((StatusCode::UNAUTHORIZED, msg)),
     };
+
+    let sent_at = meta.sent_at.and_then(|value| {
+        let value_nanos: i128 = i128::from(value) * 1_000_000; // Assuming the value is in milliseconds, latest posthog-js releases
+        if let Ok(sent_at) = OffsetDateTime::from_unix_timestamp_nanos(value_nanos) {
+            if sent_at.year() > 2020 {
+                // Could be lower if the input is in seconds
+                return Some(sent_at);
+            }
+        }
+        None
+    });
     let context = ProcessingContext {
         lib_version: meta.lib_version.clone(),
-        sent_at: meta.sent_at,
+        sent_at,
         token,
         now: state.timesource.current_time(),
         client_ip: ip.to_string(),
@@ -102,7 +114,7 @@ pub fn process_single_event(
         site_url: String::new(),
         data: String::from("hallo I am some data 😊"),
         now: context.now.clone(),
-        sent_at: String::new(),
+        sent_at: context.sent_at,
         token: context.token.clone(),
     })
 }

@@ -7,6 +7,7 @@ use serde_json::Value;
 use anyhow::{anyhow, Result};
 use bytes::{Buf, Bytes};
 use flate2::read::GzDecoder;
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 #[derive(Deserialize, Default)]
@@ -92,13 +93,20 @@ impl RawEvent {
 
 pub struct ProcessingContext {
     pub lib_version: Option<String>,
-    pub sent_at: Option<i64>,
+    pub sent_at: Option<OffsetDateTime>,
     pub token: String,
     pub now: String,
     pub client_ip: String,
 }
 
-#[derive(Clone, Default, Debug, Deserialize, Serialize)]
+time::serde::format_description!(
+    django_iso,
+    OffsetDateTime,
+    "[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:6][offset_hour \
+         sign:mandatory]:[offset_minute]"
+);
+
+#[derive(Clone, Default, Debug, Serialize)]
 pub struct ProcessedEvent {
     pub uuid: Uuid,
     pub distinct_id: String,
@@ -106,7 +114,8 @@ pub struct ProcessedEvent {
     pub site_url: String,
     pub data: String,
     pub now: String,
-    pub sent_at: String,
+    #[serde(with = "django_iso::option")]
+    pub sent_at: Option<OffsetDateTime>,
     pub token: String,
 }
 
