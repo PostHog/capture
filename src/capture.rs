@@ -98,25 +98,21 @@ pub fn process_single_event(event: &RawEvent, query: &EventQuery) -> Result<Proc
 }
 
 pub fn extract_and_verify_token(events: &[RawEvent]) -> Result<String, String> {
-    let mut request_token: Option<String> = None;
+    let distinct_tokens: HashSet<Option<String>> = HashSet::from_iter(
+        events
+            .iter()
+            .map(RawEvent::extract_token)
+            .filter(Option::is_some),
+    );
 
-    // Collect the token from the batch, detect multiples to reject request
-    for event in events {
-        let event_token = event
-            .extract_token()
-            .ok_or(String::from("event without token"))?;
-        if let Some(token) = &request_token {
-            if !token.eq(&event_token) {
-                return Err("mismatched tokens in batch".into());
-            }
-        } else {
-            if let Err(invalid) = token::validate_token(event_token.as_str()) {
-                return Err(invalid.reason().to_string());
-            }
-            request_token = Some(event_token);
-        }
-    }
-    request_token.ok_or("no token found in request".into())
+    return match distinct_tokens.len() {
+        0 => Err(String::from("no token found in request")),
+        1 => match distinct_tokens.iter().last() {
+            Some(Some(token)) => Ok(token.clone()),
+            _ => Err(String::from("no token found in request")),
+        },
+        _ => Err(String::from("number of distinct tokens in batch > 1")),
+    };
 }
 
 pub async fn process_events(
@@ -124,28 +120,6 @@ pub async fn process_events(
     events: &[RawEvent],
     query: &EventQuery,
 ) -> Result<(), String> {
-    let mut distinct_tokens = HashSet::new();
-
-    // 1. Tokens are all valid
-    for event in events {
-        let token = event.token.clone().unwrap_or_else(|| {
-            event
-                .properties
-                .get("token")
-                .map_or(String::new(), |t| String::from(t.as_str().unwrap()))
-        });
-
-        if let Err(invalid) = token::validate_token(token.as_str()) {
-            return Err(invalid.reason().to_string());
-        }
-
-        distinct_tokens.insert(token);
-    }
-
-    if distinct_tokens.len() > 1 {
-        return Err(String::from("Number of distinct tokens in batch > 1"));
-    }
-
     let events: Vec<ProcessedEvent> = match events
         .iter()
         .map(|e| process_single_event(e, query))
