@@ -90,10 +90,10 @@ async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
 
         let sink = MemorySink::default();
         let timesource = FixedTime { time: case.now };
-        let app = router(timesource, sink.clone());
+        let app = router(timesource, sink.clone(), false);
 
         let client = TestClient::new(app);
-        let mut req = client.post(&case.path).body(raw_body);
+        let mut req = client.post("/i/v0/e/").body(raw_body);
         if !case.content_encoding.is_empty() {
             req = req.header("Content-encoding", case.content_encoding);
         }

@@ -21,6 +21,8 @@ impl EventSink for PrintSink {
     async fn send(&self, event: ProcessedEvent) -> Result<(), CaptureError> {
         tracing::info!("single event: {:?}", event);
 
+        metrics::increment_counter!("capture_events_total");
+
         Ok(())
     }
     async fn send_batch(&self, events: Vec<ProcessedEvent>) -> Result<(), CaptureError> {
@@ -28,6 +30,7 @@ impl EventSink for PrintSink {
         let _enter = span.enter();
 
         for event in events {
+            metrics::increment_counter!("capture_events_total");
             tracing::info!("event: {:?}", event);
         }
 
@@ -72,10 +75,18 @@ impl KafkaSink {
             timestamp: None,
             headers: None,
         }) {
-            Ok(_) => Ok(()),
+            Ok(_) => {
+                metrics::increment_counter!("capture_events_ingested");
+                Ok(())
+            }
             Err((e, _)) => match e.rdkafka_error_code() {
-                Some(RDKafkaErrorCode::InvalidMessageSize) => Err(CaptureError::EventTooBig),
+                Some(RDKafkaErrorCode::InvalidMessageSize) => {
+                    metrics::increment_counter!("capture_events_dropped_too_big");
+                    Err(CaptureError::EventTooBig)
+                }
                 _ => {
+                    // TODO(maybe someday): Don't drop them but write them somewhere and try again
+                    metrics::increment_counter!("capture_events_dropped");
                     tracing::error!("failed to produce event: {}", e);
                     Err(CaptureError::RetryableSinkError)
                 }
