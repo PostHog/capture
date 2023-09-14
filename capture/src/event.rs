@@ -13,6 +13,8 @@ use uuid::Uuid;
 #[derive(Deserialize, Default)]
 pub enum Compression {
     #[default]
+    Unsupported,
+
     #[serde(rename = "gzip-js")]
     GzipJs,
 }
@@ -87,6 +89,12 @@ impl RawEvent {
                 })?;
                 s
             }
+            Some(_) => {
+                return Err(CaptureError::RequestDecodingError(String::from(
+                    "unsupported compression format",
+                )))
+            }
+
             None => String::from_utf8(bytes.into()).map_err(|e| {
                 tracing::error!("failed to decode body: {}", e);
                 CaptureError::RequestDecodingError(String::from("invalid body encoding"))
