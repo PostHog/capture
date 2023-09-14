@@ -1,7 +1,7 @@
 use std::env;
 use std::net::SocketAddr;
 
-use capture::{time, sink, router};
+use capture::{router, sink, time};
 
 #[tokio::main]
 async fn main() {
