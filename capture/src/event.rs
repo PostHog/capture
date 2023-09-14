@@ -116,14 +116,7 @@ pub struct ProcessingContext {
     pub client_ip: String,
 }
 
-time::serde::format_description!(
-    django_iso,
-    OffsetDateTime,
-    "[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:6][offset_hour \
-         sign:mandatory]:[offset_minute]"
-);
-
-#[derive(Clone, Default, Debug, Serialize)]
+#[derive(Clone, Default, Debug, Serialize, Eq, PartialEq)]
 pub struct ProcessedEvent {
     pub uuid: Uuid,
     pub distinct_id: String,
@@ -131,7 +124,7 @@ pub struct ProcessedEvent {
     pub site_url: String,
     pub data: String,
     pub now: String,
-    #[serde(with = "django_iso::option")]
+    #[serde(with = "time::serde::iso8601::option")]
     pub sent_at: Option<OffsetDateTime>,
     pub token: String,
 }
@@ -170,6 +163,6 @@ mod tests {
             bytes,
         );
 
-        assert_eq!(events.is_ok(), true);
+        assert!(events.is_ok());
     }
 }
