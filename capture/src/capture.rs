@@ -125,8 +125,8 @@ pub async fn process_events<'a>(
     sink: Arc<dyn sink::EventSink + Send + Sync>,
     events: &'a [RawEvent],
     context: &'a ProcessingContext,
-    ) -> Result<(), CaptureError> {
-    let events: Vec<ProcessedEvent> = match events
+) -> Result<(), CaptureError> {
+    let events: Vec<ProcessedEvent> = events
         .iter()
         .map(|e| process_single_event(e, context))
         .collect::<Result<Vec<ProcessedEvent>, CaptureError>>()?;
