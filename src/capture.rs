@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 
-use axum::{http::StatusCode, Json};
+use axum::Json;
 // TODO: stream this instead
 use axum::extract::{Query, State};
 use axum::http::HeaderMap;
@@ -69,11 +69,7 @@ pub async fn event(
         client_ip: ip.to_string(),
     };
 
-    let processed = process_events(state.sink.clone(), &events, &context).await;
-
-    if let Err(msg) = processed {
-        return Err((StatusCode::BAD_REQUEST, msg));
-    }
+    process_events(state.sink.clone(), &events, &context).await?;
 
     Ok(Json(CaptureResponse {
         status: CaptureResponseCode::Ok,
@@ -129,34 +125,17 @@ pub async fn process_events(
     sink: Arc<dyn sink::EventSink + Send + Sync>,
     events: &[RawEvent],
     context: &ProcessingContext,
-) -> Result<(), String> {
-    let events: Vec<ProcessedEvent> = match events
+) -> Result<(), CaptureError> {
+    let events = events
         .iter()
         .map(|e| process_single_event(e, context))
-        .collect()
-    {
-        Err(_) => return Err(String::from("Failed to process all events")),
-        Ok(events) => events,
-    };
+        .collect::<Result<Vec<ProcessedEvent>, CaptureError>>()?;
 
     if events.len() == 1 {
-        let sent = sink.send(events[0].clone()).await;
-
-        if let Err(e) = sent {
-            tracing::error!("Failed to send event to sink: {:?}", e);
-
-            return Err(String::from("Failed to send event to sink"));
-        }
+        sink.send(events[0].clone()).await?;
     } else {
-        let sent = sink.send_batch(events).await;
-
-        if let Err(e) = sent {
-            tracing::error!("Failed to send batch events to sink: {:?}", e);
-
-            return Err(String::from("Failed to send batch events to sink"));
-        }
+        sink.send_batch(events).await?;
     }
-
     Ok(())
 }
 

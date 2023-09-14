@@ -52,6 +52,24 @@ pub struct RawEvent {
     pub properties: HashMap<String, Value>,
 }
 
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum RawRequest {
+    /// Batch of events
+    Batch(Vec<RawEvent>),
+    /// Single event
+    One(RawEvent),
+}
+
+impl RawRequest {
+    pub fn events(self) -> Vec<RawEvent> {
+        match self {
+            RawRequest::Batch(events) => events,
+            RawRequest::One(event) => vec![event],
+        }
+    }
+}
+
 impl RawEvent {
     /// We post up _at least one_ event, so when decompressiong and deserializing there
     /// could be more than one. Hence this function has to return a Vec.
@@ -63,19 +81,19 @@ impl RawEvent {
             Some(Compression::GzipJs) => {
                 let mut d = GzDecoder::new(bytes.reader());
                 let mut s = String::new();
-                d.read_to_string(&mut s)?;
+                d.read_to_string(&mut s).map_err(|e| {
+                    tracing::error!("failed to decode gzip: {}", e);
+                    CaptureError::RequestDecodingError(String::from("invalid gzip data"))
+                })?;
                 s
             }
-            None => String::from_utf8(bytes.into())?,
+            None => String::from_utf8(bytes.into()).map_err(|e| {
+                tracing::error!("failed to decode body: {}", e);
+                CaptureError::RequestDecodingError(String::from("invalid body encoding"))
+            })?,
         };
         tracing::debug!(json = payload, "decoded event data");
-
-        if payload.starts_with('[') {
-            Ok(serde_json::from_str::<Vec<RawEvent>>(&payload)?)
-        } else {
-            let event = serde_json::from_str::<RawEvent>(&payload)?;
-            Ok(vec![event])
-        }
+        Ok(serde_json::from_str::<RawRequest>(&payload)?.events())
     }
 
     pub fn extract_token(&self) -> Option<String> {

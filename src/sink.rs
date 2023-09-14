@@ -1,30 +1,29 @@
-use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use tokio::task::JoinSet;
 
+use crate::api::CaptureError;
 use rdkafka::config::ClientConfig;
+use rdkafka::error::RDKafkaErrorCode;
 use rdkafka::producer::future_producer::{FutureProducer, FutureRecord};
 
 use crate::event::ProcessedEvent;
 
-
-
 #[async_trait]
 pub trait EventSink {
-    async fn send(&self, event: ProcessedEvent) -> Result<()>;
-    async fn send_batch(&self, events: Vec<ProcessedEvent>) -> Result<()>;
+    async fn send(&self, event: ProcessedEvent) -> Result<(), CaptureError>;
+    async fn send_batch(&self, events: Vec<ProcessedEvent>) -> Result<(), CaptureError>;
 }
 
 pub struct PrintSink {}
 
 #[async_trait]
 impl EventSink for PrintSink {
-    async fn send(&self, event: ProcessedEvent) -> Result<()> {
+    async fn send(&self, event: ProcessedEvent) -> Result<(), CaptureError> {
         tracing::info!("single event: {:?}", event);
 
         Ok(())
     }
-    async fn send_batch(&self, events: Vec<ProcessedEvent>) -> Result<()> {
+    async fn send_batch(&self, events: Vec<ProcessedEvent>) -> Result<(), CaptureError> {
         let span = tracing::span!(tracing::Level::INFO, "batch of events");
         let _enter = span.enter();
 
@@ -43,7 +42,7 @@ pub struct KafkaSink {
 }
 
 impl KafkaSink {
-    pub fn new(topic: String, brokers: String) -> Result<KafkaSink> {
+    pub fn new(topic: String, brokers: String) -> anyhow::Result<KafkaSink> {
         let producer: FutureProducer = ClientConfig::new()
             .set("bootstrap.servers", &brokers)
             .create()?;
@@ -57,8 +56,11 @@ impl KafkaSink {
         producer: FutureProducer,
         topic: String,
         event: ProcessedEvent,
-    ) -> Result<()> {
-        let payload = serde_json::to_string(&event)?;
+    ) -> Result<(), CaptureError> {
+        let payload = serde_json::to_string(&event).map_err(|e| {
+            tracing::error!("failed to serialize event: {}", e);
+            CaptureError::NonRetryableSinkError
+        })?;
 
         let key = event.key();
 
@@ -70,26 +72,25 @@ impl KafkaSink {
             timestamp: None,
             headers: None,
         }) {
-            Ok(_) => {}
-            Err(e) => {
-                tracing::error!("failed to produce event: {}", e.0);
-
-                // TODO: Improve error handling
-                return Err(anyhow!("failed to produce event {}", e.0));
-            }
+            Ok(_) => Ok(()),
+            Err((e, _)) => match e.rdkafka_error_code() {
+                Some(RDKafkaErrorCode::InvalidMessageSize) => Err(CaptureError::EventTooBig),
+                _ => {
+                    tracing::error!("failed to produce event: {}", e);
+                    Err(CaptureError::RetryableSinkError)
+                }
+            },
         }
-
-        Ok(())
     }
 }
 
 #[async_trait]
 impl EventSink for KafkaSink {
-    async fn send(&self, event: ProcessedEvent) -> Result<()> {
+    async fn send(&self, event: ProcessedEvent) -> Result<(), CaptureError> {
         Self::kafka_send(self.producer.clone(), self.topic.clone(), event).await
     }
 
-    async fn send_batch(&self, events: Vec<ProcessedEvent>) -> Result<()> {
+    async fn send_batch(&self, events: Vec<ProcessedEvent>) -> Result<(), CaptureError> {
         let mut set = JoinSet::new();
 
         for event in events {

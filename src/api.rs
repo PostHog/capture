@@ -43,6 +43,13 @@ pub enum CaptureError {
     MultipleTokensError,
     #[error("API key is not valid: {0}")]
     TokenValidationError(#[from] InvalidTokenReason),
+
+    #[error("transient error, please retry")]
+    RetryableSinkError,
+    #[error("maximum event size exceeded")]
+    EventTooBig,
+    #[error("invalid event could not be processed")]
+    NonRetryableSinkError,
 }
 
 impl IntoResponse for CaptureError {
@@ -51,10 +58,13 @@ impl IntoResponse for CaptureError {
             CaptureError::RequestDecodingError(_)
             | CaptureError::RequestParsingError(_)
             | CaptureError::EmptyBatch
-            | CaptureError::MissingDistinctId => (StatusCode::BAD_REQUEST, self.to_string()),
+            | CaptureError::MissingDistinctId
+            | CaptureError::EventTooBig
+            | CaptureError::NonRetryableSinkError => (StatusCode::BAD_REQUEST, self.to_string()),
             CaptureError::NoTokenError
             | CaptureError::MultipleTokensError
             | CaptureError::TokenValidationError(_) => (StatusCode::UNAUTHORIZED, self.to_string()),
+            CaptureError::RetryableSinkError => (StatusCode::SERVICE_UNAVAILABLE, self.to_string()),
         }
         .into_response()
     }

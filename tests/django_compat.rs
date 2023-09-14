@@ -4,7 +4,7 @@ use axum::http::StatusCode;
 use axum_test_helper::TestClient;
 use base64::engine::general_purpose;
 use base64::Engine;
-use capture::api::{CaptureResponse, CaptureResponseCode};
+use capture::api::{CaptureError, CaptureResponse, CaptureResponseCode};
 use capture::event::ProcessedEvent;
 use capture::router::router;
 use capture::sink::EventSink;
@@ -57,12 +57,12 @@ impl MemorySink {
 
 #[async_trait]
 impl EventSink for MemorySink {
-    async fn send(&self, event: ProcessedEvent) -> anyhow::Result<()> {
+    async fn send(&self, event: ProcessedEvent) -> Result<(), CaptureError> {
         self.events.lock().unwrap().push(event);
         Ok(())
     }
 
-    async fn send_batch(&self, events: Vec<ProcessedEvent>) -> anyhow::Result<()> {
+    async fn send_batch(&self, events: Vec<ProcessedEvent>) -> Result<(), CaptureError> {
         self.events.lock().unwrap().extend_from_slice(&events);
         Ok(())
     }
