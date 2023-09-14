@@ -7,6 +7,8 @@ use rdkafka::producer::future_producer::{FutureProducer, FutureRecord};
 
 use crate::event::ProcessedEvent;
 
+
+
 #[async_trait]
 pub trait EventSink {
     async fn send(&self, event: ProcessedEvent) -> Result<()>;

@@ -4,7 +4,7 @@ use std::io::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use anyhow::{anyhow, Result};
+use crate::api::CaptureError;
 use bytes::{Buf, Bytes};
 use flate2::read::GzDecoder;
 use time::OffsetDateTime;
@@ -56,7 +56,7 @@ impl RawEvent {
     /// We post up _at least one_ event, so when decompressiong and deserializing there
     /// could be more than one. Hence this function has to return a Vec.
     /// TODO: Use an axum extractor for this
-    pub fn from_bytes(query: &EventQuery, bytes: Bytes) -> Result<Vec<RawEvent>> {
+    pub fn from_bytes(query: &EventQuery, bytes: Bytes) -> Result<Vec<RawEvent>, CaptureError> {
         tracing::debug!(len = bytes.len(), "decoding new event");
 
         let payload = match query.compression {
@@ -68,15 +68,14 @@ impl RawEvent {
             }
             None => String::from_utf8(bytes.into())?,
         };
-
         tracing::debug!(json = payload, "decoded event data");
-        if let Ok(events) = serde_json::from_str::<Vec<RawEvent>>(&payload) {
-            return Ok(events);
+
+        if payload.starts_with('[') {
+            Ok(serde_json::from_str::<Vec<RawEvent>>(&payload)?)
+        } else {
+            let event = serde_json::from_str::<RawEvent>(&payload)?;
+            Ok(vec![event])
         }
-        if let Ok(events) = serde_json::from_str::<RawEvent>(&payload) {
-            return Ok(vec![events]);
-        }
-        Err(anyhow!("unknown input shape"))
     }
 
     pub fn extract_token(&self) -> Option<String> {

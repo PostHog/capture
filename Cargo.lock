@@ -202,6 +202,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_urlencoded",
+ "thiserror",
  "time",
  "tokio",
  "tower-http",
