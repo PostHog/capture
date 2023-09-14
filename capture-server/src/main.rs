@@ -1,23 +1,10 @@
 use std::env;
 use std::net::SocketAddr;
 
-<<<<<<< HEAD:capture-server/src/main.rs
 use capture::{router, sink, time};
 
 use crate::time::SystemTime;
 use crate::{router, sink};
-=======
-
-mod api;
-mod capture;
-mod event;
-mod router;
-mod sink;
-mod time;
-mod token;
-mod utils;
-mod prometheus;
->>>>>>> 726e535 (Add some lifetimes and fixes):src/main.rs
 
 #[tokio::main]
 async fn main() {
