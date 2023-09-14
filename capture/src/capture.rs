@@ -121,12 +121,12 @@ pub fn extract_and_verify_token(events: &[RawEvent]) -> Result<String, CaptureEr
     };
 }
 
-pub async fn process_events(
+pub async fn process_events<'a>(
     sink: Arc<dyn sink::EventSink + Send + Sync>,
-    events: &[RawEvent],
-    context: &ProcessingContext,
-) -> Result<(), CaptureError> {
-    let events = events
+    events: &'a [RawEvent],
+    context: &'a ProcessingContext,
+    ) -> Result<(), CaptureError> {
+    let events: Vec<ProcessedEvent> = match events
         .iter()
         .map(|e| process_single_event(e, context))
         .collect::<Result<Vec<ProcessedEvent>, CaptureError>>()?;
