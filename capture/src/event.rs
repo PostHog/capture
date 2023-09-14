@@ -28,15 +28,6 @@ pub struct EventQuery {
 
     #[serde(alias = "_")]
     pub sent_at: Option<i64>,
-
-    #[serde(skip_serializing)]
-    pub token: Option<String>,
-
-    #[serde(skip_serializing)]
-    pub now: Option<String>,
-
-    #[serde(skip_serializing)]
-    pub client_ip: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -165,9 +156,6 @@ mod tests {
                 compression: Some(Compression::GzipJs),
                 lib_version: None,
                 sent_at: None,
-                token: None,
-                now: None,
-                client_ip: None,
             },
             bytes,
         );
