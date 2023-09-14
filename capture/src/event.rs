@@ -30,13 +30,13 @@ pub struct EventQuery {
     pub sent_at: Option<i64>,
 
     #[serde(skip_serializing)]
-    pub token: Option<String>, // Filled by handler
+    pub token: Option<String>,
 
     #[serde(skip_serializing)]
-    pub now: Option<String>, // Filled by handler from timesource
+    pub now: Option<String>,
 
     #[serde(skip_serializing)]
-    pub client_ip: Option<String>, // Filled by handler
+    pub client_ip: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
