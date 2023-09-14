@@ -36,19 +36,9 @@ pub fn router<
 
     let router = Router::new()
         // TODO: use NormalizePathLayer::trim_trailing_slash
-        // I've added GET routes as well, which for now just return "capture"
-        // We could possibly make them return something useful (eg, schema)
         .route("/", get(index))
-        .route("/i", post(capture::event))
-        .route("/i/", post(capture::event))
-        .route("/s", post(capture::event))
-        .route("/s/", post(capture::event))
-        .route("/engage", post(capture::event))
-        .route("/engage/", post(capture::event))
-        .route("/e", post(capture::event))
-        .route("/e/", post(capture::event))
-        .route("/i", get(index))
-        .route("/i/", get(index))
+        .route("/i/v0/e", post(capture::event))
+        .route("/i/v0/e/", post(capture::event))
         .layer(TraceLayer::new_for_http())
         .layer(axum::middleware::from_fn(track_metrics))
         .with_state(state);
