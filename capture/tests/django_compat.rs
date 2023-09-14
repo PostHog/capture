@@ -14,7 +14,7 @@ use serde_json::{json, Value};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::sync::{Arc, Mutex};
-use time::format_description::well_known::Iso8601;
+use time::format_description::well_known::{Iso8601, Rfc3339};
 use time::OffsetDateTime;
 
 #[derive(Debug, Deserialize)]
@@ -71,7 +71,6 @@ impl EventSink for MemorySink {
 }
 
 #[tokio::test]
-#[ignore]
 async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
     let file = File::open(REQUESTS_DUMP_FILE_NAME)?;
     let reader = BufReader::new(file);
@@ -97,7 +96,7 @@ async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
         let app = router(timesource, sink.clone(), false);
 
         let client = TestClient::new(app);
-        let mut req = client.post("/i/v0/e/").body(raw_body);
+        let mut req = client.post(&format!("/i/v0{}", case.path)).body(raw_body);
         if !case.content_encoding.is_empty() {
             req = req.header("Content-encoding", case.content_encoding);
         }
@@ -142,7 +141,7 @@ async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
                 // Parse and re-print the value before comparison
                 let sent_at =
                     OffsetDateTime::parse(value.as_str().expect("empty"), &Iso8601::DEFAULT)?;
-                *value = Value::String(sent_at.format(&Iso8601::DEFAULT)?)
+                *value = Value::String(sent_at.format(&Rfc3339)?)
             }
 
             let match_config = assert_json_diff::Config::new(assert_json_diff::CompareMode::Strict);

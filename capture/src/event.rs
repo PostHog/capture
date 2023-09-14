@@ -108,6 +108,7 @@ impl RawEvent {
     }
 }
 
+#[derive(Debug)]
 pub struct ProcessingContext {
     pub lib_version: Option<String>,
     pub sent_at: Option<OffsetDateTime>,
@@ -124,7 +125,7 @@ pub struct ProcessedEvent {
     pub site_url: String,
     pub data: String,
     pub now: String,
-    #[serde(with = "time::serde::iso8601::option")]
+    #[serde(with = "time::serde::rfc3339::option")]
     pub sent_at: Option<OffsetDateTime>,
     pub token: String,
 }
