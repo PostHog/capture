@@ -15,8 +15,8 @@ pub enum Compression {
     #[default]
     Unsupported,
 
-    #[serde(rename = "gzip-js")]
-    GzipJs,
+    #[serde(rename = "gzip", alias = "gzip-js")]
+    Gzip,
 }
 
 #[derive(Deserialize, Default)]
@@ -71,7 +71,7 @@ impl RawEvent {
         tracing::debug!(len = bytes.len(), "decoding new event");
 
         let payload = match query.compression {
-            Some(Compression::GzipJs) => {
+            Some(Compression::Gzip) => {
                 let mut d = GzDecoder::new(bytes.reader());
                 let mut s = String::new();
                 d.read_to_string(&mut s).map_err(|e| {
@@ -153,7 +153,7 @@ mod tests {
         let bytes = Bytes::from(decoded_horrible_blob);
         let events = RawEvent::from_bytes(
             &EventQuery {
-                compression: Some(Compression::GzipJs),
+                compression: Some(Compression::Gzip),
                 lib_version: None,
                 sent_at: None,
             },
