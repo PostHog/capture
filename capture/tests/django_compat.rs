@@ -133,10 +133,6 @@ async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
         {
             // Normalizing the expected event to align with known django->rust inconsistencies
             let mut expected = expected.clone();
-            if let Some(value) = expected.get_mut("uuid") {
-                // TODO: remove once we pass uuids in the test input, to match latest posthog-js versions
-                *value = Value::String(message.uuid.to_string());
-            }
             if let Some(value) = expected.get_mut("sent_at") {
                 // Default ISO format is different between python and rust, both are valid
                 // Parse and re-print the value before comparison
