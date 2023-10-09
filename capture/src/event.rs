@@ -47,7 +47,8 @@ pub struct RawEvent {
     pub distinct_id: Option<String>,
     pub uuid: Option<Uuid>,
     pub event: String,
-    pub properties: HashMap<String, Value>, // TOOD: make optional?
+    #[serde(default)]
+    pub properties: HashMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timestamp: Option<String>, // Passed through if provided, parsed by ingestion
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -64,14 +65,14 @@ enum RawRequest {
     /// Batch of events
     Batch(Vec<RawEvent>),
     /// Single event
-    One(RawEvent),
+    One(Box<RawEvent>),
 }
 
 impl RawRequest {
     pub fn events(self) -> Vec<RawEvent> {
         match self {
             RawRequest::Batch(events) => events,
-            RawRequest::One(event) => vec![event],
+            RawRequest::One(event) => vec![*event],
         }
     }
 }
