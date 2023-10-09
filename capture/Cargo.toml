@@ -29,6 +29,7 @@ rdkafka = { workspace = true }
 metrics = { workspace = true }
 metrics-exporter-prometheus = { workspace = true }
 thiserror = { workspace = true }
+redis = {version="0.23.3", features=["tokio-comp"]}
 
 [dev-dependencies]
 assert-json-diff = "2.0.2"
