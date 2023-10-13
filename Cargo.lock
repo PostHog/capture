@@ -213,6 +213,7 @@ dependencies = [
  "rand",
  "rdkafka",
  "redis",
+ "redis-test",
  "serde",
  "serde_json",
  "serde_urlencoded",
@@ -290,6 +291,12 @@ name = "core-foundation-sys"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e496a50fda8aacccc86d7529e2c1e0892dbd0f898a6b5645b5561b89c3210efa"
+
+[[package]]
+name = "crc16"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "338089f42c427b86394a5ee60ff321da23a5c89c9d89514c829687b26359fcff"
 
 [[package]]
 name = "crc32fast"
@@ -1267,16 +1274,29 @@ dependencies = [
  "async-trait",
  "bytes",
  "combine",
+ "crc16",
+ "futures",
  "futures-util",
  "itoa",
+ "log",
  "percent-encoding",
  "pin-project-lite",
+ "rand",
  "ryu",
  "sha1_smol",
  "socket2 0.4.9",
  "tokio",
  "tokio-util",
  "url",
+]
+
+[[package]]
+name = "redis-test"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aba266ca48ae66978bf439fd2ac0d7a36a8635823754e2bc73afaf9d2fc25272"
+dependencies = [
+ "redis",
 ]
 
 [[package]]
