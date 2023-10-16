@@ -1,5 +1,6 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, sync::Arc, ops::Sub};
 
+use crate::redis::{RedisClient, RedisClusterClient, MockRedisClient};
 use async_trait::async_trait;
 /// Limit accounts by team ID if they hit a billing limit
 ///
@@ -22,9 +23,9 @@ use async_trait::async_trait;
 ///
 /// Some small delay between an account being limited and the limit taking effect is acceptable.
 /// However, ideally we should not allow requests from some pods but 429 from others.
-use redis::{cluster::ClusterClient, AsyncCommands, RedisError, ConnectionLike, Cmd};
 use thiserror::Error;
-use tokio::sync::{RwLock, Mutex};
+use time::{Duration, OffsetDateTime, UtcOffset};
+use tokio::sync::{Mutex, RwLock};
 use tracing::Level;
 
 // todo: fetch from env
@@ -38,8 +39,9 @@ pub enum LimiterError {
 }
 
 struct BillingLimiter {
-    nodes: Vec<String>,
     limited: Arc<RwLock<HashSet<String>>>,
+    interval: Duration,
+    updated: Arc<RwLock<time::OffsetDateTime>>,
 }
 
 impl BillingLimiter {
@@ -52,85 +54,62 @@ impl BillingLimiter {
     ///
     /// Pass an empty redis node list to only use this initial set.
     pub fn new(
-        nodes: Vec<String>,
         limited: Option<HashSet<String>>,
-    ) -> Result<BillingLimiter, RedisError> {
+        interval: Option<Duration >,
+    ) -> anyhow::Result<BillingLimiter> {
         let limited = limited.unwrap_or_else(|| HashSet::new());
         let limited = Arc::new(RwLock::new(limited));
 
-        Ok(BillingLimiter { nodes, limited })
+        // Force an update immediately if we have any reasonable interval
+        let updated = OffsetDateTime::from_unix_timestamp(0)?;
+        let updated = Arc::new(RwLock::new(updated));
+
+        // Default to an interval that's so long, we will never update. If this code is still
+        // running in 99yrs that's pretty cool.
+        let interval = interval.unwrap_or_else(||Duration::weeks(99 * 52));
+
+        Ok(BillingLimiter {
+            interval,
+            limited,
+            updated,
+        })
     }
-    
-    async fn fetch_limited(client: &ClusterClient) -> Result<Vec<String>, RedisError>{
-        let mut conn = client.get_async_connection().await?;
+
+    async fn fetch_limited(client: &impl RedisClient) -> anyhow::Result<Vec<String>> {
         let now = time::OffsetDateTime::now_utc().unix_timestamp();
 
-        conn.zrangebyscore(format!("{QUOTA_LIMITER_CACHE_KEY}events"), now, "+Inf").await
-
+        client
+            .zrangebyscore(
+                format!("{QUOTA_LIMITER_CACHE_KEY}events"),
+                now.to_string(),
+                String::from("+Inf"),
+            )
+            .await
     }
 
-    /// Spawn the tokio updater task
-    ///
-    /// Note: If no nodes are set, the billing limiter falls back to limiting a fixed set. No
-    /// updates.
-    ///
-    /// This will return an error if called more than once, globally. The background task will run
-    /// for the duration of the capture.
-    ///
-    /// If for some reason the task fails (eg lost redis connection), we fail open by clearing the
-    /// local cache and terminating the task.
-    pub async fn start_updater(&self) -> Result<(), RedisError> {
-        if self.nodes.is_empty() {
-            return Ok(())
-        }
+    pub async fn is_limited(&self, key: &str, client: &impl RedisClient) -> bool {
+        // hold the read lock to clone it, very briefly. clone is ok because it's very small 🤏
+        // rwlock can have many readers, but one writer. the writer will wait in a queue with all
+        // the readers, so we want to hold read locks for the smallest time possible to avoid
+        // writers waiting for too long. and vice versa.
+        let updated = {
+            let updated = self.updated.read().await;
+            updated.clone()
+        };
 
-        let limited = self.limited.clone();
-        let client = ClusterClient::new(self.nodes.clone())?;
+        let now = OffsetDateTime::now_utc();
+        let since_update = now.sub(updated);
 
-        tokio::spawn(async move {
-            // use an interval rather than sleep
-            // this takes into account the last execution time, so it will wait for 5 seconds since
-            // the last execution time, not 5 seconds since we start awaiting. hence mut.
-            let mut interval =
-                tokio::time::interval(tokio::time::Duration::from_secs(UPDATE_INTERVAL_SECS));
+        if since_update > self.interval {
+            let set = Self::fetch_limited(client).await;
+            let set = HashSet::from_iter(set.unwrap().iter().cloned());
 
-            // The goal is for the _entire_ iteration of this loop to take UPDATE_INTERVAL_SECS
-            // If our execution takes less time than that, the interval will pad it out.
-            loop {
-                let _span = tracing::debug_span!("billing limit update tick");
-                interval.tick().await;
+            let mut limited = self.limited.write().await;
+            *limited = set;
 
-                let tokens = Self::fetch_limited(&client).await;
+            return limited.contains(key);
+        } 
 
-                match tokens {
-                    Ok(tokens) => {
-                        tracing::debug!("{} limited tokens fetched from redis", tokens.len());
-
-                        // RAII guard on the write lock
-                        let mut l = limited.write().await;
-                        
-                        for i in tokens {
-                            l.insert(i);
-                        }
-                    }
-                    Err(e) => {
-                        // Oh no! Clear all limits. Something has gone wrong so let's play it safe.
-                        tracing::error!("error fetching limited set from redis: {}", e);
-
-                        let mut l = limited.write().await;
-                        l.clear();
-                    }
-                }
-            }
-        });
-
-        Ok(())
-    }
-
-    pub async fn is_limited(&self, key: &str) -> bool {
-        // RAII guard on read
-        // The RwLock allows many readers, but just one writer.
-        // This will yield the task if the write lock is currently held.
         let l = self.limited.read().await;
 
         l.contains(key)
@@ -139,43 +118,66 @@ impl BillingLimiter {
 
 #[cfg(test)]
 mod tests {
-    use crate::billing_limits::BillingLimiter;
+    use time::Duration;
+
+    use crate::{billing_limits::BillingLimiter, redis::{MockRedisClient, RedisClient}};
 
     // Test that a token _not_ limited has no restriction applied
     // Avoid messing up and accidentally limiting everyone
     #[tokio::test]
     async fn test_not_limited() {
-        let limiter = BillingLimiter::new(vec![], None).expect("Failed to create billing limiter");
-        limiter
-            .start_updater()
-            .await
-            .expect("Failed to start updater");
+        let client = MockRedisClient::new();
+        let limiter = BillingLimiter::new(None, None).expect("Failed to create billing limiter");
 
-        assert_eq!(limiter.is_limited("idk it doesn't matter").await, false);
+        assert_eq!(
+            limiter.is_limited("idk it doesn't matter", &client).await,
+            false
+        );
     }
 
     // Test that a token _not_ limited has no restriction applied
     // Avoid messing up and accidentally limiting everyone
     #[tokio::test]
     async fn test_fixed_limited() {
+        let client = MockRedisClient::new();
+
         let limiter = BillingLimiter::new(
-            vec![],
             Some(
                 vec![String::from("some_org_hit_limits")]
                     .into_iter()
                     .collect(),
             ),
+            None,
         )
         .expect("Failed to create billing limiter");
 
-        limiter
-            .start_updater()
-            .await
-            .expect("Failed to start updater");
-
-        assert_eq!(limiter.is_limited("idk it doesn't matter").await, false);
-        assert!(limiter.is_limited("some_org_hit_limits").await);
+        assert_eq!(
+            limiter.is_limited("idk it doesn't matter", &client).await,
+            false
+        );
+        assert!(limiter.is_limited("some_org_hit_limits", &client).await);
     }
 
-    // TODO: test the redis stuff somehow
+    #[tokio::test]
+    async fn test_dynamic_limited() {
+        let client = MockRedisClient::new().zrangebyscore_ret(vec![String::from("banana")]);
+
+        let limiter = BillingLimiter::new(
+            Some(
+                vec![String::from("some_org_hit_limits")]
+                    .into_iter()
+                    .collect(),
+            ),
+            Some(Duration::microseconds(1)),
+        )
+        .expect("Failed to create billing limiter");
+
+        assert_eq!(
+            limiter.is_limited("idk it doesn't matter", &client).await,
+            false
+        );
+
+        assert_eq!(limiter.is_limited("some_org_hit_limits", &client).await, false);
+        assert!(limiter.is_limited("banana", &client).await);
+    }
 }
