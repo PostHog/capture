@@ -41,12 +41,12 @@ impl RedisClient for RedisClusterClient {
 // mockall got really annoying with async and results so I'm just gonna do my own
 #[derive(Clone)]
 pub struct MockRedisClient {
-    zrangebyscore_ret: Vec<String>
+    zrangebyscore_ret: Vec<String>,
 }
 
 impl MockRedisClient {
-    pub fn new() -> MockRedisClient{
-        MockRedisClient{
+    pub fn new() -> MockRedisClient {
+        MockRedisClient {
             zrangebyscore_ret: Vec::new(),
         }
     }
@@ -58,10 +58,16 @@ impl MockRedisClient {
     }
 }
 
+impl Default for MockRedisClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait]
 impl RedisClient for MockRedisClient {
     // A very simplified wrapper, but works for our usage
-    async fn zrangebyscore(&self, k: String, min: String, max: String) -> Result<Vec<String>>{
+    async fn zrangebyscore(&self, _k: String, _min: String, _max: String) -> Result<Vec<String>> {
         Ok(self.zrangebyscore_ret.clone())
     }
 }
