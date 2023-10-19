@@ -16,7 +16,7 @@ const REDIS_TIMEOUT_MILLISECS: u64 = 10;
 /// awkward to work with.
 
 #[async_trait]
-pub trait RedisClient {
+pub trait Client {
     // A very simplified wrapper, but works for our usage
     async fn zrangebyscore(&self, k: String, min: String, max: String) -> Result<Vec<String>>;
 }
@@ -34,7 +34,31 @@ impl RedisClusterClient {
 }
 
 #[async_trait]
-impl RedisClient for RedisClusterClient {
+impl Client for RedisClusterClient {
+    async fn zrangebyscore(&self, k: String, min: String, max: String) -> Result<Vec<String>> {
+        let mut conn = self.client.get_async_connection().await?;
+
+        let results = conn.zrangebyscore(k, min, max);
+        let fut = timeout(Duration::from_secs(REDIS_TIMEOUT_MILLISECS), results).await?;
+
+        Ok(fut?)
+    }
+}
+
+pub struct RedisClient {
+    client: redis::Client,
+}
+
+impl RedisClient {
+    pub fn new(addr: String) -> Result<RedisClient> {
+        let client = redis::Client::open(addr)?;
+
+        Ok(RedisClient { client })
+    }
+}
+
+#[async_trait]
+impl Client for RedisClient {
     async fn zrangebyscore(&self, k: String, min: String, max: String) -> Result<Vec<String>> {
         let mut conn = self.client.get_async_connection().await?;
 
@@ -72,7 +96,7 @@ impl Default for MockRedisClient {
 }
 
 #[async_trait]
-impl RedisClient for MockRedisClient {
+impl Client for MockRedisClient {
     // A very simplified wrapper, but works for our usage
     async fn zrangebyscore(&self, _k: String, _min: String, _max: String) -> Result<Vec<String>> {
         Ok(self.zrangebyscore_ret.clone())

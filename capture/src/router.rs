@@ -7,7 +7,7 @@ use axum::{
 };
 use tower_http::trace::TraceLayer;
 
-use crate::{billing_limits::BillingLimiter, capture, redis::RedisClient, sink, time::TimeSource};
+use crate::{billing_limits::BillingLimiter, capture, redis::Client, sink, time::TimeSource};
 
 use crate::prometheus::{setup_metrics_recorder, track_metrics};
 
@@ -15,7 +15,7 @@ use crate::prometheus::{setup_metrics_recorder, track_metrics};
 pub struct State {
     pub sink: Arc<dyn sink::EventSink + Send + Sync>,
     pub timesource: Arc<dyn TimeSource + Send + Sync>,
-    pub redis: Arc<dyn RedisClient + Send + Sync>,
+    pub redis: Arc<dyn Client + Send + Sync>,
     pub billing: BillingLimiter,
 }
 
@@ -26,7 +26,7 @@ async fn index() -> &'static str {
 pub fn router<
     TZ: TimeSource + Send + Sync + 'static,
     S: sink::EventSink + Send + Sync + 'static,
-    R: RedisClient + Send + Sync + 'static,
+    R: Client + Send + Sync + 'static,
 >(
     timesource: TZ,
     sink: S,

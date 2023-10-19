@@ -1,6 +1,6 @@
 use std::{collections::HashSet, ops::Sub, sync::Arc};
 
-use crate::redis::RedisClient;
+use crate::redis::Client;
 
 /// Limit accounts by team ID if they hit a billing limit
 ///
@@ -49,7 +49,7 @@ pub enum LimiterError {
 #[derive(Clone)]
 pub struct BillingLimiter {
     limited: Arc<RwLock<HashSet<String>>>,
-    redis: Arc<dyn RedisClient + Send + Sync>,
+    redis: Arc<dyn Client + Send + Sync>,
     interval: Duration,
     updated: Arc<RwLock<time::OffsetDateTime>>,
 }
@@ -65,7 +65,7 @@ impl BillingLimiter {
     /// Pass an empty redis node list to only use this initial set.
     pub fn new(
         interval: Duration,
-        redis: Arc<dyn RedisClient + Send + Sync>,
+        redis: Arc<dyn Client + Send + Sync>,
     ) -> anyhow::Result<BillingLimiter> {
         let limited = Arc::new(RwLock::new(HashSet::new()));
 
@@ -82,7 +82,7 @@ impl BillingLimiter {
     }
 
     async fn fetch_limited(
-        client: &Arc<dyn RedisClient + Send + Sync>,
+        client: &Arc<dyn Client + Send + Sync>,
         resource: QuotaResource,
     ) -> anyhow::Result<Vec<String>> {
         let now = time::OffsetDateTime::now_utc().unix_timestamp();

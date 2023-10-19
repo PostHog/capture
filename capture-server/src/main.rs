@@ -2,7 +2,7 @@ use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use capture::{billing_limits::BillingLimiter, redis::RedisClusterClient, router, sink};
+use capture::{billing_limits::BillingLimiter, redis::RedisClient, router, sink};
 use time::Duration;
 use tokio::signal;
 
@@ -25,11 +25,10 @@ async fn shutdown() {
 async fn main() {
     let use_print_sink = env::var("PRINT_SINK").is_ok();
     let address = env::var("ADDRESS").unwrap_or(String::from("127.0.0.1:3000"));
-    let redis_addr = env::var("REDIS").expect("redis required; please set the REDIS env var to a comma-separated list of addresses ('one,two,three')");
+    let redis_addr = env::var("REDIS").expect("redis required; please set the REDIS env var");
 
-    let redis_nodes: Vec<String> = redis_addr.split(',').map(str::to_string).collect();
     let redis_client =
-        Arc::new(RedisClusterClient::new(redis_nodes).expect("failed to create redis client"));
+        Arc::new(RedisClient::new(redis_addr).expect("failed to create redis client"));
 
     let billing = BillingLimiter::new(Duration::seconds(5), redis_client.clone())
         .expect("failed to create billing limiter");
