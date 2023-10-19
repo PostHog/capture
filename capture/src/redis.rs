@@ -1,6 +1,12 @@
+use std::time::Duration;
+
 use anyhow::Result;
 use async_trait::async_trait;
 use redis::{cluster::ClusterClient, AsyncCommands};
+use tokio::time::timeout;
+
+// average for all commands is <10ms, check grafana
+const REDIS_TIMEOUT_MILLISECS: u64 = 10;
 
 /// A simple redis wrapper
 /// I'm currently just exposing the commands we use, for ease of implementation
@@ -32,9 +38,10 @@ impl RedisClient for RedisClusterClient {
     async fn zrangebyscore(&self, k: String, min: String, max: String) -> Result<Vec<String>> {
         let mut conn = self.client.get_async_connection().await?;
 
-        let results = conn.zrangebyscore(k, min, max).await?;
+        let results = conn.zrangebyscore(k, min, max);
+        let fut = timeout(Duration::from_secs(REDIS_TIMEOUT_MILLISECS), results).await?;
 
-        Ok(results)
+        Ok(fut?)
     }
 }
 
