@@ -59,7 +59,7 @@ impl BillingLimiter {
     ///
     /// This connects to a redis cluster - pass in a vec of addresses for the initial nodes.
     ///
-    /// You can also initialize the limiter with a set of tokens to liimt from the very beginning.
+    /// You can also initialize the limiter with a set of tokens to limit from the very beginning.
     /// This may be overridden by Redis, if the sets differ,
     ///
     /// Pass an empty redis node list to only use this initial set.
