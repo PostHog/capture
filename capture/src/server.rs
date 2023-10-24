@@ -7,8 +7,10 @@ use time::Duration;
 use crate::billing_limits::BillingLimiter;
 use crate::config::Config;
 use crate::health::{ComponentStatus, HealthRegistry};
+use crate::partition_limits::PartitionLimiter;
 use crate::redis::RedisClient;
 use crate::{router, sink};
+
 pub async fn serve<F>(config: Config, listener: TcpListener, shutdown: F)
 where
     F: Future<Output = ()>,
@@ -21,6 +23,8 @@ where
     let billing = BillingLimiter::new(Duration::seconds(5), redis_client.clone())
         .expect("failed to create billing limiter");
 
+    let partition_limiter= PartitionLimiter::new(config.per_second_limit, config.burst_limit);
+
     let app = if config.print_sink {
         // Print sink is only used for local debug, don't allow a container with it to run on prod
         liveness
@@ -28,12 +32,14 @@ where
             .await
             .report_status(ComponentStatus::Unhealthy)
             .await;
+
         router::router(
             crate::time::SystemTime {},
             liveness,
             sink::PrintSink {},
             redis_client,
             billing,
+            partition_limiter,
             config.export_prometheus,
         )
     } else {
@@ -47,6 +53,7 @@ where
             sink,
             redis_client,
             billing,
+            partition_limiter,
             config.export_prometheus,
         )
     };
