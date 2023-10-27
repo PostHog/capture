@@ -6,7 +6,6 @@ use crate::api::CaptureError;
 use rdkafka::config::ClientConfig;
 use rdkafka::error::RDKafkaErrorCode;
 use rdkafka::producer::future_producer::{FutureProducer, FutureRecord};
-use tracing::debug;
 
 use crate::event::ProcessedEvent;
 
@@ -44,8 +43,6 @@ struct KafkaContext;
 
 impl rdkafka::ClientContext for KafkaContext {
     fn stats(&self, stats: rdkafka::Statistics) {
-        debug!("Client stats: {:?}", &stats);
-
         gauge!("capture_kafka_callback_queue_depth", stats.replyq as f64);
         gauge!("capture_kafka_producer_queue_depth", stats.msg_cnt as f64);
         gauge!(
