@@ -13,6 +13,7 @@ struct Config {
     #[envconfig(default = "127.0.0.1:3000")]
     address: SocketAddr,
     redis_url: String,
+
     kafka_hosts: String,
     kafka_topic: String,
 }
