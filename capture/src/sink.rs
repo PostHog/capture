@@ -1,11 +1,15 @@
 use async_trait::async_trait;
 use metrics::{absolute_counter, counter, gauge, histogram};
+use std::time::Duration;
 use tokio::task::JoinSet;
 
 use crate::api::CaptureError;
 use rdkafka::config::ClientConfig;
 use rdkafka::error::RDKafkaErrorCode;
 use rdkafka::producer::future_producer::{FutureProducer, FutureRecord};
+use rdkafka::producer::Producer;
+use rdkafka::util::Timeout;
+use tracing::info;
 
 use crate::event::ProcessedEvent;
 
@@ -102,10 +106,18 @@ pub struct KafkaSink {
 
 impl KafkaSink {
     pub fn new(topic: String, brokers: String) -> anyhow::Result<KafkaSink> {
+        info!("connecting to Kafka brokers at {}...", brokers);
         let producer: FutureProducer<KafkaContext> = ClientConfig::new()
             .set("bootstrap.servers", &brokers)
             .set("statistics.interval.ms", "10000")
             .create_with_context(KafkaContext)?;
+
+        // Ping the cluster to make sure we can reach brokers
+        _ = producer.client().fetch_metadata(
+            Some("__consumer_offsets"),
+            Timeout::After(Duration::new(10, 0)),
+        )?;
+        info!("connected to Kafka brokers");
 
         Ok(KafkaSink { producer, topic })
     }

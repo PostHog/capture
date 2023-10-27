@@ -35,6 +35,9 @@ async fn shutdown() {
 
 #[tokio::main]
 async fn main() {
+    // initialize tracing
+    tracing_subscriber::fmt::init();
+
     let config = Config::init_from_env().expect("Invalid configuration:");
 
     let redis_client =
@@ -62,9 +65,6 @@ async fn main() {
             true,
         )
     };
-
-    // initialize tracing
-    tracing_subscriber::fmt::init();
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
