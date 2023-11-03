@@ -231,9 +231,11 @@ dependencies = [
 name = "capture-server"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "axum",
  "capture",
  "envconfig",
+ "once_cell",
  "time",
  "tokio",
  "tracing",
