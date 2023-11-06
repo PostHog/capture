@@ -6,7 +6,7 @@ use std::sync::{Arc, RwLock};
 
 use time::Duration;
 use tokio::sync::mpsc;
-use tracing::log::warn;
+use tracing::{info, warn};
 
 /// Health reporting for components of the service.
 ///
@@ -112,15 +112,16 @@ impl HealthHandle {
 
 #[derive(Clone)]
 pub struct HealthRegistry {
+    name: String,
     components: Arc<RwLock<HashMap<String, ComponentStatus>>>,
     sender: mpsc::Sender<HealthMessage>,
 }
 
 impl HealthRegistry {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
+    pub fn new(name: &str) -> Self {
         let (tx, mut rx) = mpsc::channel::<HealthMessage>(16);
         let registry = Self {
+            name: name.to_owned(),
             components: Default::default(),
             sender: tx,
         };
@@ -166,7 +167,7 @@ impl HealthRegistry {
         };
         let now = time::OffsetDateTime::now_utc();
 
-        components
+        let result = components
             .iter()
             .fold(result, |mut result, (name, status)| {
                 match status {
@@ -186,7 +187,12 @@ impl HealthRegistry {
                     }
                 }
                 result
-            })
+            });
+        match result.healthy {
+            true => info!("{} health check ok", self.name),
+            false => warn!("{} health check failed: {:?}", self.name, result.components),
+        }
+        result
     }
 }
 
@@ -217,13 +223,13 @@ mod tests {
     }
     #[tokio::test]
     async fn defaults_to_unhealthy() {
-        let registry = HealthRegistry::new();
+        let registry = HealthRegistry::new("liveness");
         assert!(!registry.get_status().healthy);
     }
 
     #[tokio::test]
     async fn one_component() {
-        let registry = HealthRegistry::new();
+        let registry = HealthRegistry::new("liveness");
 
         // New components are registered in Starting
         let handle = registry
@@ -256,7 +262,7 @@ mod tests {
 
     #[tokio::test]
     async fn staleness_check() {
-        let registry = HealthRegistry::new();
+        let registry = HealthRegistry::new("liveness");
         let handle = registry
             .register("one".to_string(), Duration::seconds(30))
             .await;
@@ -285,7 +291,7 @@ mod tests {
 
     #[tokio::test]
     async fn several_components() {
-        let registry = HealthRegistry::new();
+        let registry = HealthRegistry::new("liveness");
         let handle1 = registry
             .register("one".to_string(), Duration::seconds(30))
             .await;
