@@ -23,7 +23,7 @@ where
             sink::PrintSink {},
             redis_client,
             billing,
-            true,
+            config.export_prometheus,
         )
     } else {
         let sink =
@@ -34,7 +34,7 @@ where
             sink,
             redis_client,
             billing,
-            true,
+            config.export_prometheus,
         )
     };
 
