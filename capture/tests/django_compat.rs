@@ -77,7 +77,7 @@ impl EventSink for MemorySink {
 async fn it_matches_django_capture_behaviour() -> anyhow::Result<()> {
     let file = File::open(REQUESTS_DUMP_FILE_NAME)?;
     let reader = BufReader::new(file);
-    let liveness = HealthRegistry::new();
+    let liveness = HealthRegistry::new("dummy");
 
     let mut mismatches = 0;
 
