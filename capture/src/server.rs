@@ -4,8 +4,10 @@ use std::sync::Arc;
 
 use time::Duration;
 
+use crate::billing_limits::BillingLimiter;
 use crate::config::Config;
-use capture::{billing_limits::BillingLimiter, redis::RedisClient, router, sink};
+use crate::redis::RedisClient;
+use crate::{router, sink};
 
 pub async fn serve<F>(config: Config, listener: TcpListener, shutdown: F)
 where
@@ -19,7 +21,7 @@ where
 
     let app = if config.print_sink {
         router::router(
-            capture::time::SystemTime {},
+            crate::time::SystemTime {},
             sink::PrintSink {},
             redis_client,
             billing,
@@ -30,7 +32,7 @@ where
             sink::KafkaSink::new(config.kafka_topic, config.kafka_hosts, config.kafka_tls).unwrap();
 
         router::router(
-            capture::time::SystemTime {},
+            crate::time::SystemTime {},
             sink,
             redis_client,
             billing,

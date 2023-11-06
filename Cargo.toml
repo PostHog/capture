@@ -29,3 +29,4 @@ rdkafka = { version = "0.34", features = ["cmake-build", "ssl"] }
 metrics = "0.21.1"
 metrics-exporter-prometheus = "0.12.1"
 thiserror = "1.0.48"
+envconfig = "0.10.0"

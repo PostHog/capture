@@ -1,10 +1,10 @@
-use envconfig::Envconfig;
 use std::net::TcpListener;
 
-use capture_server::config::Config;
+use envconfig::Envconfig;
 use tokio::signal;
 
-use capture_server::server::serve;
+use capture::config::Config;
+use capture::server::serve;
 
 async fn shutdown() {
     let mut term = signal::unix::signal(signal::unix::SignalKind::terminate())

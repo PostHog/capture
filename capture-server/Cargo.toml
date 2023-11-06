@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 axum = { workspace = true }
 capture = { path = "../capture" }
-envconfig = "0.10.0"
+envconfig = { workspace = true }
 time = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

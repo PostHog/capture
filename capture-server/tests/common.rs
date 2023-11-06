@@ -19,8 +19,8 @@ use rdkafka::{Message, TopicPartitionList};
 use tokio::sync::Notify;
 use tracing::debug;
 
-use capture_server::config::Config;
-use capture_server::server::serve;
+use capture::config::Config;
+use capture::server::serve;
 
 pub static DEFAULT_CONFIG: Lazy<Config> = Lazy::new(|| Config {
     print_sink: false,

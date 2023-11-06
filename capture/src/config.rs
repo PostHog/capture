@@ -1,5 +1,6 @@
-use envconfig::Envconfig;
 use std::net::SocketAddr;
+
+use envconfig::Envconfig;
 
 #[derive(Envconfig, Clone)]
 pub struct Config {
