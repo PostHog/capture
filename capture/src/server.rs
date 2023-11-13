@@ -23,8 +23,6 @@ where
     let billing = BillingLimiter::new(Duration::seconds(5), redis_client.clone())
         .expect("failed to create billing limiter");
 
-    let partition_limiter= PartitionLimiter::new(config.per_second_limit, config.burst_limit);
-
     let app = if config.print_sink {
         // Print sink is only used for local debug, don't allow a container with it to run on prod
         liveness
@@ -39,21 +37,22 @@ where
             sink::PrintSink {},
             redis_client,
             billing,
-            partition_limiter,
             config.export_prometheus,
         )
     } else {
         let sink_liveness = liveness
             .register("rdkafka".to_string(), Duration::seconds(30))
             .await;
-        let sink = sink::KafkaSink::new(config.kafka, sink_liveness).unwrap();
+
+        let partition = PartitionLimiter::new(config.per_second_limit, config.burst_limit);
+        let sink = sink::KafkaSink::new(config.kafka, sink_liveness, partition).unwrap();
+
         router::router(
             crate::time::SystemTime {},
             liveness,
             sink,
             redis_client,
             billing,
-            partition_limiter,
             config.export_prometheus,
         )
     };

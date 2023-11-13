@@ -10,7 +10,7 @@ use tower_http::cors::{AllowHeaders, AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 use crate::health::HealthRegistry;
-use crate::{billing_limits::BillingLimiter, capture, redis::Client, sink, time::TimeSource, partition_limits::PartitionLimiter};
+use crate::{billing_limits::BillingLimiter, capture, redis::Client, sink, time::TimeSource};
 
 use crate::prometheus::{setup_metrics_recorder, track_metrics};
 
@@ -20,7 +20,6 @@ pub struct State {
     pub timesource: Arc<dyn TimeSource + Send + Sync>,
     pub redis: Arc<dyn Client + Send + Sync>,
     pub billing: BillingLimiter,
-    pub partition: PartitionLimiter,
 }
 
 async fn index() -> &'static str {
@@ -37,7 +36,6 @@ pub fn router<
     sink: S,
     redis: Arc<R>,
     billing: BillingLimiter,
-    partition: PartitionLimiter,
     metrics: bool,
 ) -> Router {
     let state = State {
@@ -45,7 +43,6 @@ pub fn router<
         timesource: Arc::new(timesource),
         redis,
         billing,
-        partition,
     };
 
     // Very permissive CORS policy, as old SDK versions
