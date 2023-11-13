@@ -5,7 +5,7 @@
 /// If the write-rate reaches a certain amount, we need to be able to handle the hot partition
 /// before it causes a negative impact. In this case, instead of passing the error to the customer
 /// with a 429, we relax our ordering constraints and temporarily override the key, meaning the
-/// customers data will be written to random partitions.
+/// customers data will be spread across all partitions.
 use std::{num::NonZeroU32, sync::Arc};
 
 use governor::{clock, state::keyed::DefaultKeyedStateStore, Quota, RateLimiter};
