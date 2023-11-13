@@ -81,8 +81,7 @@ async fn it_is_limited() -> Result<()> {
     setup_tracing();
 
     let token = random_string("token", 16);
-    let distinct_id1 = random_string("id", 16);
-    let distinct_id2 = random_string("id", 16);
+    let distinct_id = random_string("id", 16);
 
     let topic = EphemeralTopic::new().await;
 
@@ -96,11 +95,11 @@ async fn it_is_limited() -> Result<()> {
     let event = json!([{
         "token": token,
         "event": "event1",
-        "distinct_id": distinct_id1
+        "distinct_id": distinct_id
     },{
         "token": token,
         "event": "event2",
-        "distinct_id": distinct_id2
+        "distinct_id": distinct_id
     }]);
 
     let res = server.capture_events(event.to_string()).await;
@@ -110,8 +109,8 @@ async fn it_is_limited() -> Result<()> {
         topic.next_message_key()?.unwrap(),
         format!(
             "{}:{}",
-            event[0]["token"].as_str().unwrap(),
-            event[0]["distinct_id"].as_str().unwrap()
+            token,
+            distinct_id
         )
     );
 
@@ -125,9 +124,7 @@ async fn it_is_limited_with_burst() -> Result<()> {
     setup_tracing();
 
     let token = random_string("token", 16);
-    let distinct_id1 = random_string("id", 16);
-    let distinct_id2 = random_string("id", 16);
-    let distinct_id3 = random_string("id", 16);
+    let distinct_id = random_string("id", 16);
 
     let topic = EphemeralTopic::new().await;
 
@@ -141,15 +138,15 @@ async fn it_is_limited_with_burst() -> Result<()> {
     let event = json!([{
         "token": token,
         "event": "event1",
-        "distinct_id": distinct_id1
+        "distinct_id": distinct_id
     },{
         "token": token,
         "event": "event2",
-        "distinct_id": distinct_id2
+        "distinct_id": distinct_id
     },{
         "token": token,
-        "event": "event1",
-        "distinct_id": distinct_id3
+        "event": "event3",
+        "distinct_id": distinct_id
     }]);
 
     let res = server.capture_events(event.to_string()).await;
@@ -157,12 +154,12 @@ async fn it_is_limited_with_burst() -> Result<()> {
 
     assert_eq!(
         topic.next_message_key()?.unwrap(),
-        format!("{}:{}", token, distinct_id1)
+        format!("{}:{}", token, distinct_id)
     );
 
     assert_eq!(
         topic.next_message_key()?.unwrap(),
-        format!("{}:{}", token, distinct_id2)
+        format!("{}:{}", token, distinct_id)
     );
 
     assert_eq!(topic.next_message_key()?, None);

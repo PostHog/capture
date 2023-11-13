@@ -203,7 +203,7 @@ impl KafkaSink {
 impl EventSink for KafkaSink {
     #[instrument(skip_all)]
     async fn send(&self, event: ProcessedEvent) -> Result<(), CaptureError> {
-        let limited = self.partition.is_limited(&event.token);
+        let limited = self.partition.is_limited(&event.key());
         Self::kafka_send(self.producer.clone(), self.topic.clone(), event, limited).await?;
 
         histogram!("capture_event_batch_size", 1.0);
@@ -220,7 +220,7 @@ impl EventSink for KafkaSink {
             let producer = self.producer.clone();
             let topic = self.topic.clone();
 
-            let limited = self.partition.is_limited(&event.token);
+            let limited = self.partition.is_limited(&event.key());
             set.spawn(Self::kafka_send(producer, topic, event, limited));
         }
 
