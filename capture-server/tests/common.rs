@@ -160,7 +160,6 @@ impl EphemeralTopic {
                 } else {
                     Ok(None)
                 }
-
             }
             Some(Err(err)) => bail!("kafka read error: {}", err),
             None => bail!("kafka read timeout"),

@@ -108,12 +108,14 @@ async fn it_is_limited() -> Result<()> {
 
     assert_eq!(
         topic.next_message_key()?.unwrap(),
-        format!("{}:{}", event[0]["token"].as_str().unwrap(), event[0]["distinct_id"].as_str().unwrap())
+        format!(
+            "{}:{}",
+            event[0]["token"].as_str().unwrap(),
+            event[0]["distinct_id"].as_str().unwrap()
+        )
     );
 
-    assert_eq!(
-        topic.next_message_key()?, None
-    );
+    assert_eq!(topic.next_message_key()?, None);
 
     Ok(())
 }
@@ -163,9 +165,7 @@ async fn it_is_limited_with_burst() -> Result<()> {
         format!("{}:{}", token, distinct_id2)
     );
 
-    assert_eq!(
-        topic.next_message_key()?, None
-    );
+    assert_eq!(topic.next_message_key()?, None);
 
     Ok(())
 }
