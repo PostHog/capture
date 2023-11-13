@@ -77,7 +77,7 @@ async fn it_captures_a_batch() -> Result<()> {
 }
 
 #[tokio::test]
-async fn it_is_limited() -> Result<()> {
+async fn it_is_limited_with_burst() -> Result<()> {
     setup_tracing();
 
     let token = random_string("token", 16);
@@ -87,7 +87,7 @@ async fn it_is_limited() -> Result<()> {
 
     let mut config = DEFAULT_CONFIG.clone();
     config.kafka.kafka_topic = topic.topic_name().to_string();
-    config.burst_limit = NonZeroU32::new(1).unwrap();
+    config.burst_limit = NonZeroU32::new(2).unwrap();
     config.per_second_limit = NonZeroU32::new(1).unwrap();
 
     let server = ServerHandle::for_config(config);
@@ -100,10 +100,19 @@ async fn it_is_limited() -> Result<()> {
         "token": token,
         "event": "event2",
         "distinct_id": distinct_id
+    },{
+        "token": token,
+        "event": "event3",
+        "distinct_id": distinct_id
     }]);
 
     let res = server.capture_events(event.to_string()).await;
     assert_eq!(StatusCode::OK, res.status());
+
+    assert_eq!(
+        topic.next_message_key()?.unwrap(),
+        format!("{}:{}", token, distinct_id)
+    );
 
     assert_eq!(
         topic.next_message_key()?.unwrap(),
