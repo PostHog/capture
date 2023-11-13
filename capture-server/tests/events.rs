@@ -166,3 +166,46 @@ async fn it_is_limited_with_burst() -> Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn it_does_not_partition_limit_different_ids() -> Result<()> {
+    setup_tracing();
+
+    let token = random_string("token", 16);
+    let distinct_id = random_string("id", 16);
+    let distinct_id2 = random_string("id", 16);
+
+    let topic = EphemeralTopic::new().await;
+
+    let mut config = DEFAULT_CONFIG.clone();
+    config.kafka.kafka_topic = topic.topic_name().to_string();
+    config.burst_limit = NonZeroU32::new(1).unwrap();
+    config.per_second_limit = NonZeroU32::new(1).unwrap();
+
+    let server = ServerHandle::for_config(config);
+
+    let event = json!([{
+        "token": token,
+        "event": "event1",
+        "distinct_id": distinct_id
+    },{
+        "token": token,
+        "event": "event2",
+        "distinct_id": distinct_id2
+    }]);
+
+    let res = server.capture_events(event.to_string()).await;
+    assert_eq!(StatusCode::OK, res.status());
+
+    assert_eq!(
+        topic.next_message_key()?.unwrap(),
+        format!("{}:{}", token, distinct_id)
+    );
+
+    assert_eq!(
+        topic.next_message_key()?.unwrap(),
+        format!("{}:{}", token, distinct_id2)
+    );
+
+    Ok(())
+}
