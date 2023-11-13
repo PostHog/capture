@@ -107,11 +107,7 @@ async fn it_is_limited() -> Result<()> {
 
     assert_eq!(
         topic.next_message_key()?.unwrap(),
-        format!(
-            "{}:{}",
-            token,
-            distinct_id
-        )
+        format!("{}:{}", token, distinct_id)
     );
 
     assert_eq!(topic.next_message_key()?, None);
