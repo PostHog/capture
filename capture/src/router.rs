@@ -51,7 +51,7 @@ pub fn router<
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         .allow_headers(AllowHeaders::mirror_request())
         .allow_credentials(true)
-        .allow_origin(AllowOrigin::mirror_request());
+        .allow_origin(AllowOrigin::any());
 
     let router = Router::new()
         // TODO: use NormalizePathLayer::trim_trailing_slash
