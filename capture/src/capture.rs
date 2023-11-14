@@ -176,18 +176,25 @@ pub async fn process_events<'a>(
     events: &'a [RawEvent],
     context: &'a ProcessingContext,
 ) -> Result<(), CaptureError> {
-    let events: Vec<ProcessedEvent> = events
-        .iter()
-        .map(|e| process_single_event(e, context))
-        .collect::<Result<Vec<ProcessedEvent>, CaptureError>>()?;
+    let mut fut = Vec::with_capacity(events.len());
+
+    for e in events {
+        let event = process_single_event(e, context);
+
+        // If an event fails, we're ok with not ingesting it and allowing the rest of the batch to
+        // pass. In v2, we can change this - but right now we have to match current behaviour.
+        if let Ok(event) = event {
+            let sink = sink.clone();
+            let f = tokio::spawn(async move {sink.send(event).await});
+            fut.push(f);
+        }
+    }
 
     tracing::debug!(events=?events, "processed {} events", events.len());
 
-    if events.len() == 1 {
-        sink.send(events[0].clone()).await?;
-    } else {
-        sink.send_batch(events).await?;
-    }
+    let res = futures::future::join_all(fut);
+    res.await;
+
     Ok(())
 }
 
