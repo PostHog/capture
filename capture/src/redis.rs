@@ -23,13 +23,21 @@ pub trait Client {
 
 pub struct RedisClient {
     client: redis::Client,
+    key_prefix: Option<String>
 }
 
 impl RedisClient {
-    pub fn new(addr: String) -> Result<RedisClient> {
+    pub fn new(addr: String, key_prefix: Option<String>) -> Result<RedisClient> {
         let client = redis::Client::open(addr)?;
 
-        Ok(RedisClient { client })
+        Ok(RedisClient { client, key_prefix })
+    }
+
+    fn build_key(&self, key: String) -> String {
+        match &self.key_prefix {
+            Some(prefix) => format!("{}:::{}", prefix, key),
+            None => key,
+        }
     }
 }
 
@@ -38,7 +46,7 @@ impl Client for RedisClient {
     async fn zrangebyscore(&self, k: String, min: String, max: String) -> Result<Vec<String>> {
         let mut conn = self.client.get_async_connection().await?;
 
-        let results = conn.zrangebyscore(k, min, max);
+        let results = conn.zrangebyscore(self.build_key(k), min, max);
         let fut = timeout(Duration::from_secs(REDIS_TIMEOUT_MILLISECS), results).await?;
 
         Ok(fut?)
