@@ -248,7 +248,7 @@ impl EphemeralRedis {
     pub async fn new() -> Self {
         Self {
             client: redis::Client::open(DEFAULT_CONFIG.redis_url.clone())
-                .expect("failed to create Redis client"),
+                .expect("failed to create redis client"),
             key_prefix: random_string("events_", 16),
         }
     }
@@ -269,5 +269,19 @@ impl EphemeralRedis {
 impl ConfigMutator for EphemeralRedis {
     fn configure(&self, config: &mut Config) {
         config.redis_key_prefix = Some(self.key_prefix.clone())
+    }
+}
+
+impl Drop for EphemeralRedis {
+    fn drop(&mut self) {
+        let mut conn = self
+            .client
+            .get_connection()
+            .expect("failed to create redis conn");
+        let keys: Vec<String> = conn
+            .keys(format!("{}:::*", self.key_prefix))
+            .expect("failed to list keys");
+        debug!("deleting redis keys: {:?}", keys);
+        redis::Cmd::del(keys).execute(&mut conn);
     }
 }
