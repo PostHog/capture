@@ -17,6 +17,8 @@ use rdkafka::config::{ClientConfig, FromClientConfig};
 use rdkafka::consumer::{BaseConsumer, Consumer};
 use rdkafka::util::Timeout;
 use rdkafka::{Message, TopicPartitionList};
+use redis::Commands;
+use time::OffsetDateTime;
 use tokio::sync::Notify;
 use tracing::debug;
 
@@ -25,8 +27,9 @@ use capture::server::serve;
 
 pub static DEFAULT_CONFIG: Lazy<Config> = Lazy::new(|| Config {
     print_sink: false,
-    address: SocketAddr::from_str("127.0.0.1:0").unwrap(),
-    redis_url: "redis://localhost:6379/".to_string(),
+    address: SocketAddr::from_str("127.0.0.1:0").unwrap(), // Use a random port
+    redis_url: "redis://localhost:6379/2".to_string(),     // Use DB 2 to avoid overlap with devenv
+    redis_key_prefix: None,                                // Will be set if needed
     burst_limit: NonZeroU32::new(5).unwrap(),
     per_second_limit: NonZeroU32::new(10).unwrap(),
     kafka: KafkaConfig {
@@ -39,7 +42,7 @@ pub static DEFAULT_CONFIG: Lazy<Config> = Lazy::new(|| Config {
     },
     otel_url: None,
     otel_sampling_rate: 0.0,
-    export_prometheus: false,
+    export_prometheus: false, // Not idempotent, second test would fail to start
 });
 
 static TRACING_INIT: Once = Once::new();
@@ -50,18 +53,46 @@ pub fn setup_tracing() {
             .init()
     });
 }
+
+pub trait ConfigMutator {
+    fn configure(&self, config: &mut Config);
+}
+
+pub struct ServerConfig {
+    config: Config,
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            config: DEFAULT_CONFIG.clone(),
+        }
+    }
+}
+
+impl ServerConfig {
+    pub fn new(f: fn(&mut Config)) -> Self {
+        let mut config = DEFAULT_CONFIG.clone();
+        f(&mut config);
+        Self { config }
+    }
+    pub fn with(mut self, f: &impl ConfigMutator) -> Self {
+        f.configure(&mut self.config);
+        self
+    }
+
+    pub fn start(self) -> ServerHandle {
+        ServerHandle::new(self.config)
+    }
+}
+
 pub struct ServerHandle {
     pub addr: SocketAddr,
     shutdown: Arc<Notify>,
 }
 
 impl ServerHandle {
-    pub fn for_topic(topic: &EphemeralTopic) -> Self {
-        let mut config = DEFAULT_CONFIG.clone();
-        config.kafka.kafka_topic = topic.topic_name().to_string();
-        Self::for_config(config)
-    }
-    pub fn for_config(config: Config) -> Self {
+    pub fn new(config: Config) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
         let notify = Arc::new(Notify::new());
@@ -171,6 +202,12 @@ impl EphemeralTopic {
     }
 }
 
+impl ConfigMutator for EphemeralTopic {
+    fn configure(&self, config: &mut Config) {
+        config.kafka.kafka_topic = self.topic_name.clone()
+    }
+}
+
 impl Drop for EphemeralTopic {
     fn drop(&mut self) {
         debug!("dropping EphemeralTopic {}...", self.topic_name);
@@ -200,4 +237,37 @@ pub fn random_string(prefix: &str, length: usize) -> String {
         .map(char::from)
         .collect();
     format!("{}_{}", prefix, suffix)
+}
+
+pub struct EphemeralRedis {
+    client: redis::Client,
+    key_prefix: String,
+}
+
+impl EphemeralRedis {
+    pub async fn new() -> Self {
+        Self {
+            client: redis::Client::open(DEFAULT_CONFIG.redis_url.clone())
+                .expect("failed to create Redis client"),
+            key_prefix: random_string("events_", 16),
+        }
+    }
+
+    pub fn add_billing_limit(
+        &self,
+        resource: &str,
+        token: &str,
+        until: OffsetDateTime,
+    ) -> anyhow::Result<()> {
+        let mut conn = self.client.get_connection()?;
+        let key = format!("{}:::@posthog/quota-limits/{}", self.key_prefix, resource);
+        conn.zadd(key, token, until.unix_timestamp())?;
+        Ok(())
+    }
+}
+
+impl ConfigMutator for EphemeralRedis {
+    fn configure(&self, config: &mut Config) {
+        config.redis_key_prefix = Some(self.key_prefix.clone())
+    }
 }

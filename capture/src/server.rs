@@ -17,8 +17,10 @@ where
 {
     let liveness = HealthRegistry::new("liveness");
 
-    let redis_client =
-        Arc::new(RedisClient::new(config.redis_url, config.redis_key_prefix).expect("failed to create redis client"));
+    let redis_client = Arc::new(
+        RedisClient::new(config.redis_url, config.redis_key_prefix)
+            .expect("failed to create redis client"),
+    );
 
     let billing = BillingLimiter::new(Duration::seconds(5), redis_client.clone())
         .expect("failed to create billing limiter");

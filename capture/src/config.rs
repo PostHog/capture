@@ -11,7 +11,8 @@ pub struct Config {
     pub address: SocketAddr,
 
     pub redis_url: String,
-    pub redis_key_prefix: Option<String>,
+    pub redis_key_prefix: Option<String>, // Used for integration tests only
+
     pub otel_url: Option<String>,
 
     #[envconfig(default = "100")]

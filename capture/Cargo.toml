@@ -29,7 +29,7 @@ rdkafka = { workspace = true }
 metrics = { workspace = true }
 metrics-exporter-prometheus = { workspace = true }
 thiserror = { workspace = true }
-redis = { version="0.23.3", features=["tokio-comp", "cluster", "cluster-async"] }
+redis = { workspace = true }
 envconfig = { workspace = true }
 dashmap = "5.5.3"
 

@@ -23,7 +23,7 @@ pub trait Client {
 
 pub struct RedisClient {
     client: redis::Client,
-    key_prefix: Option<String>
+    key_prefix: Option<String>,
 }
 
 impl RedisClient {
