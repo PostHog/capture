@@ -44,7 +44,7 @@ where
             .register("rdkafka".to_string(), Duration::seconds(30))
             .await;
 
-        let partition = PartitionLimiter::new(config.per_second_limit, config.burst_limit);
+        let partition = PartitionLimiter::new(config.per_second_limit, config.burst_limit, config.overflow_forced_keys);
         let sink = sink::KafkaSink::new(config.kafka, sink_liveness, partition).unwrap();
 
         router::router(
