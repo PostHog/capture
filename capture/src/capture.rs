@@ -86,7 +86,6 @@ pub async fn event(
         }
     }?;
 
-
     tracing::Span::current().record("batch_size", events.len());
 
     if events.is_empty() {
