@@ -7,7 +7,7 @@ use bytes::Bytes;
 use axum::Json;
 // TODO: stream this instead
 use axum::extract::{Query, State};
-use axum::http::{HeaderMap, HeaderValue};
+use axum::http::HeaderMap;
 use axum_client_ip::InsecureClientIp;
 use base64::Engine;
 use metrics::counter;
