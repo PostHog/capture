@@ -5,10 +5,10 @@ use metrics::{absolute_counter, counter, gauge, histogram};
 use rdkafka::config::ClientConfig;
 use rdkafka::error::RDKafkaErrorCode;
 use rdkafka::producer::future_producer::{FutureProducer, FutureRecord};
-use rdkafka::producer::Producer;
+use rdkafka::producer::{DeliveryFuture, Producer};
 use rdkafka::util::Timeout;
 use tokio::task::JoinSet;
-use tracing::{debug, info, instrument};
+use tracing::{debug, error, info, instrument};
 
 use crate::api::CaptureError;
 use crate::config::KafkaConfig;
@@ -128,6 +128,10 @@ impl KafkaSink {
             .set("bootstrap.servers", &config.kafka_hosts)
             .set("statistics.interval.ms", "10000")
             .set("linger.ms", config.kafka_producer_linger_ms.to_string())
+            .set(
+                "message.timeout.ms",
+                config.kafka_message_timeout_ms.to_string(),
+            )
             .set("compression.codec", config.kafka_compression_codec)
             .set(
                 "queue.buffering.max.kbytes",
@@ -157,17 +161,15 @@ impl KafkaSink {
             topic: config.kafka_topic,
         })
     }
-}
 
-impl KafkaSink {
     async fn kafka_send(
         producer: FutureProducer<KafkaContext>,
         topic: String,
         event: ProcessedEvent,
         limited: bool,
-    ) -> Result<(), CaptureError> {
+    ) -> Result<DeliveryFuture, CaptureError> {
         let payload = serde_json::to_string(&event).map_err(|e| {
-            tracing::error!("failed to serialize event: {}", e);
+            error!("failed to serialize event: {}", e);
             CaptureError::NonRetryableSinkError
         })?;
 
@@ -182,7 +184,7 @@ impl KafkaSink {
             timestamp: None,
             headers: None,
         }) {
-            Ok(_) => Ok(()),
+            Ok(ack) => Ok(ack),
             Err((e, _)) => match e.rdkafka_error_code() {
                 Some(RDKafkaErrorCode::InvalidMessageSize) => {
                     report_dropped_events("kafka_message_size", 1);
@@ -191,10 +193,31 @@ impl KafkaSink {
                 _ => {
                     // TODO(maybe someday): Don't drop them but write them somewhere and try again
                     report_dropped_events("kafka_write_error", 1);
-                    tracing::error!("failed to produce event: {}", e);
+                    error!("failed to produce event: {}", e);
                     Err(CaptureError::RetryableSinkError)
                 }
             },
+        }
+    }
+
+    async fn process_ack(delivery: DeliveryFuture) -> Result<(), CaptureError> {
+        match delivery.await {
+            Err(_) => {
+                // Cancelled due to timeout while retrying
+                counter!("capture_kafka_produce_errors_total", 1);
+                error!("failed to produce to Kafka before write timeout");
+                Err(CaptureError::RetryableSinkError)
+            }
+            Ok(Err((err, _))) => {
+                // Unretriable produce error
+                counter!("capture_kafka_produce_errors_total", 1);
+                error!("failed to produce to Kafka: {}", err);
+                Err(CaptureError::RetryableSinkError)
+            }
+            Ok(Ok(_)) => {
+                counter!("capture_events_ingested_total", 1);
+                Ok(())
+            }
         }
     }
 }
@@ -204,12 +227,9 @@ impl EventSink for KafkaSink {
     #[instrument(skip_all)]
     async fn send(&self, event: ProcessedEvent) -> Result<(), CaptureError> {
         let limited = self.partition.is_limited(&event.key());
-        Self::kafka_send(self.producer.clone(), self.topic.clone(), event, limited).await?;
-
-        histogram!("capture_event_batch_size", 1.0);
-        counter!("capture_events_ingested_total", 1);
-
-        Ok(())
+        let ack =
+            Self::kafka_send(self.producer.clone(), self.topic.clone(), event, limited).await?;
+        Self::process_ack(ack).await
     }
 
     #[instrument(skip_all)]
@@ -219,16 +239,31 @@ impl EventSink for KafkaSink {
         for event in events {
             let producer = self.producer.clone();
             let topic = self.topic.clone();
-
             let limited = self.partition.is_limited(&event.key());
-            set.spawn(Self::kafka_send(producer, topic, event, limited));
+
+            // We await kafka_send once to get events in the producer queue sequentially
+            let ack = Self::kafka_send(producer, topic, event, limited).await?;
+
+            // Then stash the returned DeliveryFuture, waiting for the write ACKs from brokers.
+            set.spawn(Self::process_ack(ack));
         }
 
-        // Await on all the produce promises
-        while (set.join_next().await).is_some() {}
+        // Await on all the produce promises, fail batch on first failure
+        while let Some(res) = set.join_next().await {
+            match res {
+                Ok(Ok(_)) => {}
+                Ok(Err(err)) => {
+                    set.abort_all();
+                    return Err(err);
+                }
+                Err(err) => {
+                    error!("failed to produce to Kafka: {:?}", err);
+                    return Err(CaptureError::RetryableSinkError);
+                }
+            }
+        }
 
         histogram!("capture_event_batch_size", batch_size as f64);
-        counter!("capture_events_ingested_total", batch_size as u64);
         Ok(())
     }
 }
