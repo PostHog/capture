@@ -6,8 +6,9 @@
 /// before it causes a negative impact. In this case, instead of passing the error to the customer
 /// with a 429, we relax our ordering constraints and temporarily override the key, meaning the
 /// customers data will be spread across all partitions.
-use std::{num::NonZeroU32, sync::Arc};
 use std::collections::HashSet;
+use std::num::NonZeroU32;
+use std::sync::Arc;
 
 use governor::{clock, state::keyed::DefaultKeyedStateStore, Quota, RateLimiter};
 
@@ -28,7 +29,10 @@ impl PartitionLimiter {
             Some(values) => values.split(',').map(String::from).collect(),
         };
 
-        PartitionLimiter { limiter, forced_keys }
+        PartitionLimiter {
+            limiter,
+            forced_keys,
+        }
     }
 
     pub fn is_limited(&self, key: &String) -> bool {
@@ -43,8 +47,11 @@ mod tests {
 
     #[tokio::test]
     async fn low_limits() {
-        let limiter =
-            PartitionLimiter::new(NonZeroU32::new(1).unwrap(), NonZeroU32::new(1).unwrap(), None);
+        let limiter = PartitionLimiter::new(
+            NonZeroU32::new(1).unwrap(),
+            NonZeroU32::new(1).unwrap(),
+            None,
+        );
         let token = String::from("test");
 
         assert!(!limiter.is_limited(&token));
@@ -53,8 +60,11 @@ mod tests {
 
     #[tokio::test]
     async fn bursting() {
-        let limiter =
-            PartitionLimiter::new(NonZeroU32::new(1).unwrap(), NonZeroU32::new(3).unwrap(), None);
+        let limiter = PartitionLimiter::new(
+            NonZeroU32::new(1).unwrap(),
+            NonZeroU32::new(3).unwrap(),
+            None,
+        );
         let token = String::from("test");
 
         assert!(!limiter.is_limited(&token));
@@ -70,8 +80,11 @@ mod tests {
         let key_three = String::from("three");
         let forced_keys = Some(String::from("one,three"));
 
-        let limiter =
-            PartitionLimiter::new(NonZeroU32::new(1).unwrap(), NonZeroU32::new(1).unwrap(), forced_keys);
+        let limiter = PartitionLimiter::new(
+            NonZeroU32::new(1).unwrap(),
+            NonZeroU32::new(1).unwrap(),
+            forced_keys,
+        );
 
         // One and three are limited from the start, two is not
         assert!(limiter.is_limited(&key_one));
@@ -80,6 +93,5 @@ mod tests {
 
         // Two is limited on the second event
         assert!(limiter.is_limited(&key_two));
-
     }
 }
