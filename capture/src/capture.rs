@@ -26,7 +26,7 @@ use crate::{
     utils::uuid_v7,
 };
 
-#[instrument(skip_all, fields(token, batch_size, user_agent, content_encoding, version, compression))]
+#[instrument(skip_all, fields(token, batch_size, user_agent, content_encoding, content_type, version, compression))]
 pub async fn event(
     state: State<router::State>,
     InsecureClientIp(ip): InsecureClientIp,
@@ -48,7 +48,7 @@ pub async fn event(
         .map_or("", |v| v.to_str().unwrap_or(""))
     {
         "application/x-www-form-urlencoded" => {
-            tracing::Span::current().record("content-type", "application/x-www-form-urlencoded");
+            tracing::Span::current().record("content_type", "application/x-www-form-urlencoded");
 
             let input: EventFormData = serde_urlencoded::from_bytes(body.deref()).unwrap();
             let payload = base64::engine::general_purpose::STANDARD
@@ -57,7 +57,7 @@ pub async fn event(
             RawEvent::from_bytes(&meta, payload.into())
         }
         ct => {
-            tracing::Span::current().record("content-type", ct);
+            tracing::Span::current().record("content_type", ct);
 
                 RawEvent::from_bytes(&meta, body)
             },
