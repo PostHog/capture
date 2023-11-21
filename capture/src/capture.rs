@@ -49,14 +49,22 @@ pub async fn event(
     // user-agent
 
     let user_agent = headers
-        .get("user_agent")
+        .get("user-agent")
         .map_or("unknown", |v| v.to_str().unwrap_or("unknown"));
     let content_encoding = headers
-        .get("content_encoding")
+        .get("content-encoding")
         .map_or("unknown", |v| v.to_str().unwrap_or("unknown"));
+
+    let comp = match meta.compression {
+        None => String::from("unknown"),
+        Some(Compression::Gzip) => String::from("gzip"),
+        Some(Compression::Unsupported) => String::from("unsupported"),
+    };
 
     tracing::Span::current().record("user_agent", user_agent);
     tracing::Span::current().record("content_encoding", content_encoding);
+    tracing::Span::current().record("version", meta.lib_version.clone());
+    tracing::Span::current().record("compression", comp.as_str());
 
     let events = match headers
         .get("content-type")
@@ -78,15 +86,8 @@ pub async fn event(
         }
     }?;
 
-    let comp = match meta.compression {
-        None => String::from("unknown"),
-        Some(Compression::Gzip) => String::from("gzip"),
-        Some(Compression::Unsupported) => String::from("unsupported"),
-    };
 
     tracing::Span::current().record("batch_size", events.len());
-    tracing::Span::current().record("version", meta.lib_version.clone());
-    tracing::Span::current().record("compression", comp.as_str());
 
     if events.is_empty() {
         return Err(CaptureError::EmptyBatch);
