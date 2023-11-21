@@ -7,7 +7,7 @@ use bytes::Bytes;
 use axum::Json;
 // TODO: stream this instead
 use axum::extract::{Query, State};
-use axum::http::HeaderMap;
+use axum::http::{HeaderMap, Method};
 use axum_client_ip::InsecureClientIp;
 use base64::Engine;
 use metrics::counter;
@@ -43,6 +43,7 @@ pub async fn event(
     InsecureClientIp(ip): InsecureClientIp,
     meta: Query<EventQuery>,
     headers: HeaderMap,
+    method: Method,
     body: Bytes,
 ) -> Result<Json<CaptureResponse>, CaptureError> {
     // content-type
@@ -65,6 +66,7 @@ pub async fn event(
     tracing::Span::current().record("content_encoding", content_encoding);
     tracing::Span::current().record("version", meta.lib_version.clone());
     tracing::Span::current().record("compression", comp.as_str());
+    tracing::Span::current().record("method", method.as_str());
 
     let events = match headers
         .get("content-type")
