@@ -359,7 +359,7 @@ mod tests {
         cluster.clear_request_errors(RDKafkaApiKey::Produce);
         let err = [RDKafkaRespErr::RD_KAFKA_RESP_ERR_INVALID_PARTITIONS; 1];
         cluster.request_errors(RDKafkaApiKey::Produce, &err);
-        match sink.send(event.clone()).await {
+        match sink.send_batch(vec![event.clone(), event.clone()]).await {
             Err(CaptureError::RetryableSinkError) => {} // Expected
             Err(err) => panic!("wrong error code {}", err),
             Ok(()) => panic!("should have errored"),
@@ -384,6 +384,11 @@ mod tests {
         let err = [RDKafkaRespErr::RD_KAFKA_RESP_ERR_BROKER_NOT_AVAILABLE; 50];
         cluster.request_errors(RDKafkaApiKey::Produce, &err);
         match sink.send(event.clone()).await {
+            Err(CaptureError::RetryableSinkError) => {} // Expected
+            Err(err) => panic!("wrong error code {}", err),
+            Ok(()) => panic!("should have errored"),
+        };
+        match sink.send_batch(vec![event.clone(), event.clone()]).await {
             Err(CaptureError::RetryableSinkError) => {} // Expected
             Err(err) => panic!("wrong error code {}", err),
             Ok(()) => panic!("should have errored"),
