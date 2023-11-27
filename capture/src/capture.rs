@@ -7,7 +7,7 @@ use bytes::Bytes;
 use axum::Json;
 // TODO: stream this instead
 use axum::extract::{Query, State};
-use axum::http::HeaderMap;
+use axum::http::{HeaderMap, Method};
 use axum_client_ip::InsecureClientIp;
 use base64::Engine;
 use metrics::counter;
@@ -16,7 +16,7 @@ use time::OffsetDateTime;
 use tracing::instrument;
 
 use crate::billing_limits::QuotaResource;
-use crate::event::ProcessingContext;
+use crate::event::{Compression, ProcessingContext};
 use crate::prometheus::report_dropped_events;
 use crate::token::validate_token;
 use crate::{
@@ -26,26 +26,66 @@ use crate::{
     utils::uuid_v7,
 };
 
-#[instrument(skip_all, fields(token, batch_size))]
+#[instrument(
+    skip_all,
+    fields(
+        token,
+        batch_size,
+        user_agent,
+        content_encoding,
+        content_type,
+        version,
+        compression
+    )
+)]
 pub async fn event(
     state: State<router::State>,
     InsecureClientIp(ip): InsecureClientIp,
     meta: Query<EventQuery>,
     headers: HeaderMap,
+    method: Method,
     body: Bytes,
 ) -> Result<Json<CaptureResponse>, CaptureError> {
+    // content-type
+    // user-agent
+
+    let user_agent = headers
+        .get("user-agent")
+        .map_or("unknown", |v| v.to_str().unwrap_or("unknown"));
+    let content_encoding = headers
+        .get("content-encoding")
+        .map_or("unknown", |v| v.to_str().unwrap_or("unknown"));
+
+    let comp = match meta.compression {
+        None => String::from("unknown"),
+        Some(Compression::Gzip) => String::from("gzip"),
+        Some(Compression::Unsupported) => String::from("unsupported"),
+    };
+
+    tracing::Span::current().record("user_agent", user_agent);
+    tracing::Span::current().record("content_encoding", content_encoding);
+    tracing::Span::current().record("version", meta.lib_version.clone());
+    tracing::Span::current().record("compression", comp.as_str());
+    tracing::Span::current().record("method", method.as_str());
+
     let events = match headers
         .get("content-type")
         .map_or("", |v| v.to_str().unwrap_or(""))
     {
         "application/x-www-form-urlencoded" => {
+            tracing::Span::current().record("content_type", "application/x-www-form-urlencoded");
+
             let input: EventFormData = serde_urlencoded::from_bytes(body.deref()).unwrap();
             let payload = base64::engine::general_purpose::STANDARD
                 .decode(input.data)
                 .unwrap();
             RawEvent::from_bytes(&meta, payload.into())
         }
-        _ => RawEvent::from_bytes(&meta, body),
+        ct => {
+            tracing::Span::current().record("content_type", ct);
+
+            RawEvent::from_bytes(&meta, body)
+        }
     }?;
 
     tracing::Span::current().record("batch_size", events.len());
@@ -88,7 +128,7 @@ pub async fn event(
         .await;
 
     if billing_limited {
-        report_dropped_events("over_quota", 1);
+        report_dropped_events("over_quota", events.len() as u64);
 
         // for v0 we want to just return ok 🙃
         // this is because the clients are pretty dumb and will just retry over and over and
@@ -103,7 +143,11 @@ pub async fn event(
 
     tracing::debug!(context=?context, events=?events, "decoded request");
 
-    process_events(state.sink.clone(), &events, &context).await?;
+    if let Err(err) = process_events(state.sink.clone(), &events, &context).await {
+        report_dropped_events("process_events_error", events.len() as u64);
+        tracing::log::warn!("rejected invalid payload: {}", err);
+        return Err(err);
+    }
 
     Ok(Json(CaptureResponse {
         status: CaptureResponseCode::Ok,
@@ -184,11 +228,10 @@ pub async fn process_events<'a>(
     tracing::debug!(events=?events, "processed {} events", events.len());
 
     if events.len() == 1 {
-        sink.send(events[0].clone()).await?;
+        sink.send(events[0].clone()).await
     } else {
-        sink.send_batch(events).await?;
+        sink.send_batch(events).await
     }
-    Ok(())
 }
 
 #[cfg(test)]

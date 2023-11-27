@@ -49,7 +49,8 @@ where
             config.burst_limit,
             config.overflow_forced_keys,
         );
-        let sink = sink::KafkaSink::new(config.kafka, sink_liveness, partition).unwrap();
+        let sink = sink::KafkaSink::new(config.kafka, sink_liveness, partition)
+            .expect("failed to start Kafka sink");
 
         router::router(
             crate::time::SystemTime {},
