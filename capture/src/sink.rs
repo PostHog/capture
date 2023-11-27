@@ -240,6 +240,7 @@ impl EventSink for KafkaSink {
         let limited = self.partition.is_limited(&event.key());
         let ack =
             Self::kafka_send(self.producer.clone(), self.topic.clone(), event, limited).await?;
+        histogram!("capture_event_batch_size", 1.0);
         Self::process_ack(ack).await
     }
 
