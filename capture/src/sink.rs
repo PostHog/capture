@@ -8,7 +8,7 @@ use rdkafka::producer::future_producer::{FutureProducer, FutureRecord};
 use rdkafka::producer::{DeliveryFuture, Producer};
 use rdkafka::util::Timeout;
 use tokio::task::JoinSet;
-use tracing::instrument;
+use tracing::{instrument, span};
 use tracing::log::{debug, error, info};
 
 use crate::api::CaptureError;
@@ -241,6 +241,7 @@ impl EventSink for KafkaSink {
         let ack =
             Self::kafka_send(self.producer.clone(), self.topic.clone(), event, limited).await?;
         histogram!("capture_event_batch_size", 1.0);
+        let ackSpan = span!(Level::INFO, "ack_wait_one").entered();
         Self::process_ack(ack).await
     }
 
@@ -261,6 +262,7 @@ impl EventSink for KafkaSink {
         }
 
         // Await on all the produce promises, fail batch on first failure
+        let ackSpan = span!(Level::INFO, "ack_wait_many").entered();
         while let Some(res) = set.join_next().await {
             match res {
                 Ok(Ok(_)) => {}
@@ -275,6 +277,7 @@ impl EventSink for KafkaSink {
                 }
             }
         }
+        ackSpan.exit();
 
         histogram!("capture_event_batch_size", batch_size as f64);
         Ok(())
