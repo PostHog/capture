@@ -172,7 +172,7 @@ async fn it_trims_distinct_id() -> Result<()> {
     setup_tracing();
     let token = random_string("token", 16);
     let distinct_id1 = random_string("id", 200 - 3);
-    let distinct_id2 = random_string("id", 200);
+    let distinct_id2 = random_string("id", 222);
     let (trimmed_distinct_id2, _) = distinct_id2.split_at(200); // works because ascii chars
 
     let topic = EphemeralTopic::new().await;
