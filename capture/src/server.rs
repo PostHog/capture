@@ -4,10 +4,10 @@ use std::sync::Arc;
 
 use time::Duration;
 
-use crate::billing_limits::BillingLimiter;
 use crate::config::Config;
 use crate::health::{ComponentStatus, HealthRegistry};
-use crate::partition_limits::PartitionLimiter;
+use crate::limiters::billing_limits::BillingLimiter;
+use crate::limiters::partition_limits::PartitionLimiter;
 use crate::redis::RedisClient;
 use crate::{router, sink};
 

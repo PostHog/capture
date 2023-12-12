@@ -15,7 +15,7 @@ use crate::api::CaptureError;
 use crate::config::KafkaConfig;
 use crate::event::ProcessedEvent;
 use crate::health::HealthHandle;
-use crate::partition_limits::PartitionLimiter;
+use crate::limiters::partition_limits::PartitionLimiter;
 use crate::prometheus::report_dropped_events;
 
 #[async_trait]
@@ -294,7 +294,7 @@ mod tests {
     use crate::config;
     use crate::event::ProcessedEvent;
     use crate::health::HealthRegistry;
-    use crate::partition_limits::PartitionLimiter;
+    use crate::limiters::partition_limits::PartitionLimiter;
     use crate::sink::{EventSink, KafkaSink};
     use crate::utils::uuid_v7;
     use rand::distributions::Alphanumeric;

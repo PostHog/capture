@@ -1,10 +1,9 @@
 pub mod api;
-pub mod billing_limits;
 pub mod capture;
 pub mod config;
 pub mod event;
 pub mod health;
-pub mod partition_limits;
+pub mod limiters;
 pub mod prometheus;
 pub mod redis;
 pub mod router;

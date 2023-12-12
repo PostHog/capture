@@ -53,7 +53,7 @@ impl PartitionLimiter {
 
 #[cfg(test)]
 mod tests {
-    use crate::partition_limits::PartitionLimiter;
+    use crate::limiters::partition_limits::PartitionLimiter;
     use std::num::NonZeroU32;
 
     #[tokio::test]

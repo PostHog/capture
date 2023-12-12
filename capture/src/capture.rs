@@ -15,8 +15,8 @@ use metrics::counter;
 use time::OffsetDateTime;
 use tracing::instrument;
 
-use crate::billing_limits::QuotaResource;
 use crate::event::{Compression, ProcessingContext};
+use crate::limiters::billing_limits::QuotaResource;
 use crate::prometheus::report_dropped_events;
 use crate::token::validate_token;
 use crate::{

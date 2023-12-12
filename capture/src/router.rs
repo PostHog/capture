@@ -10,7 +10,9 @@ use tower_http::cors::{AllowHeaders, AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 use crate::health::HealthRegistry;
-use crate::{billing_limits::BillingLimiter, capture, redis::Client, sink, time::TimeSource};
+use crate::{
+    capture, limiters::billing_limits::BillingLimiter, redis::Client, sink, time::TimeSource,
+};
 
 use crate::prometheus::{setup_metrics_recorder, track_metrics};
 
