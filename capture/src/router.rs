@@ -10,15 +10,13 @@ use tower_http::cors::{AllowHeaders, AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 use crate::health::HealthRegistry;
-use crate::{
-    capture, limiters::billing_limits::BillingLimiter, redis::Client, sinks, time::TimeSource,
-};
+use crate::{capture, limiters::billing::BillingLimiter, redis::Client, sinks, time::TimeSource};
 
 use crate::prometheus::{setup_metrics_recorder, track_metrics};
 
 #[derive(Clone)]
 pub struct State {
-    pub sink: Arc<dyn sinks::EventSink + Send + Sync>,
+    pub sink: Arc<dyn sinks::Event + Send + Sync>,
     pub timesource: Arc<dyn TimeSource + Send + Sync>,
     pub redis: Arc<dyn Client + Send + Sync>,
     pub billing: BillingLimiter,
@@ -30,7 +28,7 @@ async fn index() -> &'static str {
 
 pub fn router<
     TZ: TimeSource + Send + Sync + 'static,
-    S: sinks::EventSink + Send + Sync + 'static,
+    S: sinks::Event + Send + Sync + 'static,
     R: Client + Send + Sync + 'static,
 >(
     timesource: TZ,

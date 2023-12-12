@@ -7,10 +7,10 @@ use base64::Engine;
 use capture::api::{CaptureError, CaptureResponse, CaptureResponseCode};
 use capture::event::ProcessedEvent;
 use capture::health::HealthRegistry;
-use capture::limiters::billing_limits::BillingLimiter;
+use capture::limiters::billing::BillingLimiter;
 use capture::redis::MockRedisClient;
 use capture::router::router;
-use capture::sinks::EventSink;
+use capture::sinks::Event;
 use capture::time::TimeSource;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -61,7 +61,7 @@ impl MemorySink {
 }
 
 #[async_trait]
-impl EventSink for MemorySink {
+impl Event for MemorySink {
     async fn send(&self, event: ProcessedEvent) -> Result<(), CaptureError> {
         self.events.lock().unwrap().push(event);
         Ok(())

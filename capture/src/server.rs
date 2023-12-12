@@ -6,8 +6,8 @@ use time::Duration;
 
 use crate::config::Config;
 use crate::health::{ComponentStatus, HealthRegistry};
-use crate::limiters::billing_limits::BillingLimiter;
-use crate::limiters::partition_limits::PartitionLimiter;
+use crate::limiters::billing::BillingLimiter;
+use crate::limiters::overflow::OverflowLimiter;
 use crate::redis::RedisClient;
 use crate::router;
 use crate::sinks::{kafka, print};
@@ -45,9 +45,9 @@ where
             .register("rdkafka".to_string(), Duration::seconds(30))
             .await;
 
-        let partition = PartitionLimiter::new(
-            config.per_second_limit,
-            config.burst_limit,
+        let partition = OverflowLimiter::new(
+            config.overflow_per_second_limit,
+            config.overflow_burst_limit,
             config.overflow_forced_keys,
         );
         if config.export_prometheus {

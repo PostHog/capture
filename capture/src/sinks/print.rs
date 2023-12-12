@@ -4,12 +4,12 @@ use tracing::log::info;
 
 use crate::api::CaptureError;
 use crate::event::ProcessedEvent;
-use crate::sinks::EventSink;
+use crate::sinks::Event;
 
 pub struct PrintSink {}
 
 #[async_trait]
-impl EventSink for PrintSink {
+impl Event for PrintSink {
     async fn send(&self, event: ProcessedEvent) -> Result<(), CaptureError> {
         info!("single event: {:?}", event);
         counter!("capture_events_ingested_total", 1);
