@@ -9,7 +9,8 @@ use crate::health::{ComponentStatus, HealthRegistry};
 use crate::limiters::billing_limits::BillingLimiter;
 use crate::limiters::partition_limits::PartitionLimiter;
 use crate::redis::RedisClient;
-use crate::{router, sink};
+use crate::router;
+use crate::sinks::{kafka, print};
 
 pub async fn serve<F>(config: Config, listener: TcpListener, shutdown: F)
 where
@@ -34,7 +35,7 @@ where
         router::router(
             crate::time::SystemTime {},
             liveness,
-            sink::PrintSink {},
+            print::PrintSink {},
             redis_client,
             billing,
             config.export_prometheus,
@@ -55,7 +56,7 @@ where
                 partition.report_metrics().await;
             });
         }
-        let sink = sink::KafkaSink::new(config.kafka, sink_liveness, partition)
+        let sink = kafka::KafkaSink::new(config.kafka, sink_liveness, partition)
             .expect("failed to start Kafka sink");
 
         router::router(

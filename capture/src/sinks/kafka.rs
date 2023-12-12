@@ -2,11 +2,10 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use metrics::{absolute_counter, counter, gauge, histogram};
-use rdkafka::config::ClientConfig;
 use rdkafka::error::{KafkaError, RDKafkaErrorCode};
-use rdkafka::producer::future_producer::{FutureProducer, FutureRecord};
-use rdkafka::producer::{DeliveryFuture, Producer};
+use rdkafka::producer::{DeliveryFuture, FutureProducer, FutureRecord, Producer};
 use rdkafka::util::Timeout;
+use rdkafka::ClientConfig;
 use tokio::task::JoinSet;
 use tracing::log::{debug, error, info};
 use tracing::{info_span, instrument, Instrument};
@@ -17,36 +16,7 @@ use crate::event::ProcessedEvent;
 use crate::health::HealthHandle;
 use crate::limiters::partition_limits::PartitionLimiter;
 use crate::prometheus::report_dropped_events;
-
-#[async_trait]
-pub trait EventSink {
-    async fn send(&self, event: ProcessedEvent) -> Result<(), CaptureError>;
-    async fn send_batch(&self, events: Vec<ProcessedEvent>) -> Result<(), CaptureError>;
-}
-
-pub struct PrintSink {}
-
-#[async_trait]
-impl EventSink for PrintSink {
-    async fn send(&self, event: ProcessedEvent) -> Result<(), CaptureError> {
-        info!("single event: {:?}", event);
-        counter!("capture_events_ingested_total", 1);
-
-        Ok(())
-    }
-    async fn send_batch(&self, events: Vec<ProcessedEvent>) -> Result<(), CaptureError> {
-        let span = tracing::span!(tracing::Level::INFO, "batch of events");
-        let _enter = span.enter();
-
-        histogram!("capture_event_batch_size", events.len() as f64);
-        counter!("capture_events_ingested_total", events.len() as u64);
-        for event in events {
-            info!("event: {:?}", event);
-        }
-
-        Ok(())
-    }
-}
+use crate::sinks::EventSink;
 
 struct KafkaContext {
     liveness: HealthHandle,
@@ -295,7 +265,8 @@ mod tests {
     use crate::event::ProcessedEvent;
     use crate::health::HealthRegistry;
     use crate::limiters::partition_limits::PartitionLimiter;
-    use crate::sink::{EventSink, KafkaSink};
+    use crate::sinks::kafka::KafkaSink;
+    use crate::sinks::EventSink;
     use crate::utils::uuid_v7;
     use rand::distributions::Alphanumeric;
     use rand::Rng;

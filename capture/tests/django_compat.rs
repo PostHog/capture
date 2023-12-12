@@ -10,7 +10,7 @@ use capture::health::HealthRegistry;
 use capture::limiters::billing_limits::BillingLimiter;
 use capture::redis::MockRedisClient;
 use capture::router::router;
-use capture::sink::EventSink;
+use capture::sinks::EventSink;
 use capture::time::TimeSource;
 use serde::Deserialize;
 use serde_json::{json, Value};
