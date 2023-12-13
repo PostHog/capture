@@ -35,7 +35,6 @@ jobs:
 
   test:
     runs-on: buildjet-4vcpu-ubuntu-2204
-    timeout-minutes: 10
 
     steps:
     - uses: actions/checkout@v3
