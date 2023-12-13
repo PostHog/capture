@@ -49,6 +49,18 @@ impl PartitionLimiter {
             gauge!("partition_limits_key_count", self.limiter.len() as f64);
         }
     }
+
+    /// Clean up the rate limiter state, once per minute. Ensure we don't use more memory than
+    /// necessary.
+    pub async fn clean_state(&self) {
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(60));
+        loop {
+            interval.tick().await;
+
+            self.limiter.retain_recent();
+            self.limiter.shrink_to_fit();
+        }
+    }
 }
 
 #[cfg(test)]
