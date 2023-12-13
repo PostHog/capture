@@ -10,7 +10,8 @@ use crate::limiters::billing::BillingLimiter;
 use crate::limiters::overflow::OverflowLimiter;
 use crate::redis::RedisClient;
 use crate::router;
-use crate::sinks::{kafka, print};
+use crate::sinks::kafka::KafkaSink;
+use crate::sinks::print::PrintSink;
 
 pub async fn serve<F>(config: Config, listener: TcpListener, shutdown: F)
 where
@@ -35,7 +36,7 @@ where
         router::router(
             crate::time::SystemTime {},
             liveness,
-            print::PrintSink {},
+            PrintSink {},
             redis_client,
             billing,
             config.export_prometheus,
@@ -56,7 +57,14 @@ where
                 partition.report_metrics().await;
             });
         }
-        let sink = kafka::KafkaSink::new(config.kafka, sink_liveness, partition)
+        {
+            // Ensure that the rate limiter state does not grow unbounded
+            let partition = partition.clone();
+            tokio::spawn(async move {
+                partition.clean_state().await;
+            });
+        }
+        let sink = KafkaSink::new(config.kafka, sink_liveness, partition)
             .expect("failed to start Kafka sink");
 
         router::router(
