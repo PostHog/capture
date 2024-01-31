@@ -77,6 +77,54 @@ async fn it_captures_a_batch() -> Result<()> {
 }
 
 #[tokio::test]
+async fn it_captures_a_different_batch() -> Result<()> {
+    setup_tracing();
+    let token = random_string("token", 16);
+    let distinct_id1 = random_string("id", 16);
+    let distinct_id2 = random_string("id", 16);
+
+    let topic = EphemeralTopic::new().await;
+    let server = ServerHandle::for_topic(&topic);
+
+    let event = json!([{
+      "api_key": token,
+      "event": "event1",
+      "properties": {
+        "prop1": "str1",
+        "prop2": 1234f64,
+        "distinct_id": distinct_id1,
+        "timestamp": 1705418635246f64,
+      },
+      "timestamp": "2024-01-16T15:23:55.246Z"
+    },{
+      "api_key": token,
+      "event": "event2",
+      "distinct_id": distinct_id2,
+      "timestamp": "2024-01-16T17:23:55.246Z"
+    }]);
+
+    let res = server.capture_events(event.to_string()).await;
+    assert_eq!(StatusCode::OK, res.status());
+
+    assert_json_include!(
+        actual: topic.next_event()?,
+        expected: json!({
+            "token": token,
+            "distinct_id": distinct_id1
+        })
+    );
+    assert_json_include!(
+        actual: topic.next_event()?,
+        expected: json!({
+            "token": token,
+            "distinct_id": distinct_id2
+        })
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn it_overflows_events_on_burst() -> Result<()> {
     setup_tracing();
 
